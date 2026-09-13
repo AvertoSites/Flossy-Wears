@@ -1,0 +1,191 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Light-only brand. `dark:` utilities in vendored components are neutralised:
+   they only apply under an explicit `.dark` ancestor, which we never render. */
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.5rem;
+
+  /* Brand */
+  --brand-navy: #1e3a5f;
+  --brand-navy-dark: #142a46;
+  --brand-gold: #c8a44d;
+  --brand-gold-light: #e4c87b;
+  --brand-gold-dark: #9a7b2e;
+  --brand-paper: #fcfaf5;
+  --brand-cream: #f1eadb;
+  --brand-ink: #1f1b16;
+
+  /* Garment swatches (UI only) */
+  --swatch-brown: #4a342a;
+  --swatch-olive: #4b5320;
+  --swatch-purple: #4b2e83;
+  --swatch-heather: #8a8d8f;
+  --swatch-black: #1a1a1a;
+  --swatch-bone: #ede6d6;
+
+  /* Semantic (shadcn) */
+  --background: #fcfaf5;
+  --foreground: #1f1b16;
+
+  --card: #ffffff;
+  --card-foreground: #1f1b16;
+  --popover: #ffffff;
+  --popover-foreground: #1f1b16;
+
+  --primary: #1e3a5f;
+  --primary-foreground: #fcfaf5;
+  --secondary: #f1eadb;
+  --secondary-foreground: #1e3a5f;
+  --muted: #f1eadb;
+  --muted-foreground: #6b6459;
+  --accent: #c8a44d;
+  --accent-foreground: #1f1b16;
+  --destructive: #9b2c2c;
+
+  --border: #e7dfcc;
+  --input: #e7dfcc;
+  --ring: #c8a44d;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-navy: var(--brand-navy);
+  --color-navy-dark: var(--brand-navy-dark);
+  --color-gold: var(--brand-gold);
+  --color-gold-light: var(--brand-gold-light);
+  --color-gold-dark: var(--brand-gold-dark);
+  --color-paper: var(--brand-paper);
+  --color-cream: var(--brand-cream);
+  --color-ink: var(--brand-ink);
+
+  --color-swatch-brown: var(--swatch-brown);
+  --color-swatch-olive: var(--swatch-olive);
+  --color-swatch-purple: var(--swatch-purple);
+  --color-swatch-heather: var(--swatch-heather);
+  --color-swatch-black: var(--swatch-black);
+  --color-swatch-bone: var(--swatch-bone);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: var(--brand-gold-light);
+    color: var(--brand-ink);
+  }
+}
+
+@utility container-page {
+  width: 100%;
+  margin-inline: auto;
+  max-width: 90rem;
+  padding-inline: clamp(1rem, 0.5rem + 2.5vw, 2rem);
+}
+
+/* ---------------------------------------------------------------------
+   Route transitions (React <ViewTransition>, see route-transition.tsx).
+   Old content leaves quickly; new content arrives a touch slower with a
+   gentle lift, so the swap reads as a handoff rather than a jump cut.
+   ------------------------------------------------------------------- */
+@layer base {
+  :root {
+    --duration-route-exit: 140ms;
+    --duration-route-enter: 220ms;
+  }
+
+  ::view-transition-old(.route-exit) {
+    animation: var(--duration-route-exit) ease-in both route-fade-out;
+  }
+  ::view-transition-new(.route-enter) {
+    animation: var(--duration-route-enter) ease-out var(--duration-route-exit) both
+      route-fade-in;
+  }
+
+  @keyframes route-fade-out {
+    to {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
+  @keyframes route-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+
+  /* Persistent chrome stays put — it lives outside the transitioning
+     subtree, but is anchored explicitly so it never gets swept into the
+     browser's default root crossfade. */
+  ::view-transition-group(site-header),
+  ::view-transition-group(admin-header),
+  ::view-transition-group(admin-sidebar) {
+    animation: none;
+  }
+
+  /* Let clicks pass through to the live page while the overlay animates. */
+  ::view-transition {
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(*),
+    ::view-transition-new(*),
+    ::view-transition-group(*) {
+      animation-duration: 0s !important;
+      animation-delay: 0s !important;
+    }
+  }
+}
