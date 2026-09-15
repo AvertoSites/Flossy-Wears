@@ -8,7 +8,7 @@
 
 export type Money = { amount: number; currency: "GBP" };
 
-export type CustomVerse = { text: string; reference: string };
+export type CustomVerse = { text: string; reference: string; note?: string };
 
 export type ProductVariant = {
   id: string;

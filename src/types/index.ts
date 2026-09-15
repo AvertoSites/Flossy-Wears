@@ -54,6 +54,8 @@ export type Verse = {
 export type CustomVerse = {
   text: string;
   reference: string;
+  /** Optional shopper note — placement requests, special instructions, etc. */
+  note?: string;
 };
 
 export type Product = {

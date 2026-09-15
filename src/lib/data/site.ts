@@ -5,7 +5,7 @@ export const site = {
   description:
     "Flossy Wears makes premium, editorial faith apparel — heavyweight sweatshirts and tees carrying Scripture worth wearing. Designed in the UK.",
   url: "https://flossywears.co.uk",
-  email: "hello@flossywears.co.uk",
+  email: "flossywears@gmail.com",
   phone: "+44 20 7946 0958",
   currency: "GBP" as const,
   locale: "en-GB",

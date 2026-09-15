@@ -9,8 +9,9 @@ export const resendApiKey = defineSecret("RESEND_API_KEY");
 // is a separate TypeScript project from the Next.js app (see types.ts).
 const SITE = {
   name: "Flossy Wears",
-  url: "https://flossywears.co.uk",
-  email: "hello@flossywears.co.uk",
+  // TODO: switch back to https://flossywears.co.uk once that's the live domain.
+  url: "https://flossy-wears.netlify.app",
+  email: "flossywears@gmail.com",
   phone: "+44 20 7946 0958",
 };
 
@@ -63,16 +64,22 @@ export async function sendOrderConfirmationEmail(order: {
   };
 }) {
   const itemRows = order.lines
-    .map(
-      (l) =>
-        `${l.quantity} × ${l.name} (${l.colourLabel} / ${l.size}) — ${formatPrice(l.price * l.quantity)}`,
-    )
+    .map((l) => {
+      const base = `${l.quantity} × ${l.name} (${l.colourLabel} / ${l.size}) — ${formatPrice(l.price * l.quantity)}`;
+      if (!l.customVerse) return base;
+      const noteLine = l.customVerse.note ? ` — Note: ${l.customVerse.note}` : "";
+      return `${base}\n  Custom print: "${l.customVerse.text}" — ${l.customVerse.reference}${noteLine}`;
+    })
     .join("\n");
   const itemRowsHtml = order.lines
     .map(
       (l) => `
         <tr>
-          <td style="padding:6px 0">${l.quantity} × ${l.name}<br/><span style="color:#666;font-size:13px">${l.colourLabel} / ${l.size}</span></td>
+          <td style="padding:6px 0">${l.quantity} × ${l.name}<br/><span style="color:#666;font-size:13px">${l.colourLabel} / ${l.size}</span>${
+            l.customVerse
+              ? `<br/><span style="color:#8a6d1a;font-size:13px">Custom print: &ldquo;${l.customVerse.text}&rdquo; — ${l.customVerse.reference}${l.customVerse.note ? `<br/>Note: ${l.customVerse.note}` : ""}</span>`
+              : ""
+          }</td>
           <td style="padding:6px 0;text-align:right">${formatPrice(l.price * l.quantity)}</td>
         </tr>`,
     )

@@ -16,6 +16,7 @@ import type { Product } from "@/types";
 
 const VERSE_MAX = 140;
 const REFERENCE_MAX = 40;
+const NOTE_MAX = 200;
 
 /** Short, stable id suffix so different custom verses on the same size/colour don't collide in cart. */
 function hashText(value: string) {
@@ -33,6 +34,7 @@ export function CustomiseView({ products }: { products: Product[] }) {
   );
   const [verseText, setVerseText] = useState("");
   const [reference, setReference] = useState("");
+  const [note, setNote] = useState("");
   const [colour, setColourState] = useState(products[0]?.colours[0]?.value ?? "");
   const [size, setSize] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
@@ -62,13 +64,18 @@ export function CustomiseView({ products }: { products: Product[] }) {
 
   const trimmedText = verseText.trim();
   const trimmedReference = reference.trim();
+  const trimmedNote = note.trim();
   const canAdd = !!selectedVariant && !!trimmedText && !!trimmedReference;
 
   function handleAdd() {
     if (!product || !selectedVariant || !size || !canAdd) return;
     const colourLabel =
       product.colours.find((c) => c.value === colour)?.label ?? colour;
-    const customVerse = { text: trimmedText, reference: trimmedReference };
+    const customVerse = {
+      text: trimmedText,
+      reference: trimmedReference,
+      ...(trimmedNote && { note: trimmedNote }),
+    };
     addToCart(
       {
         id: `${product.id}:${colour}:${size}:custom-${hashText(`${trimmedText}|${trimmedReference}`)}`,
@@ -90,6 +97,7 @@ export function CustomiseView({ products }: { products: Product[] }) {
     );
     setVerseText("");
     setReference("");
+    setNote("");
   }
 
   if (products.length === 0) {
@@ -196,6 +204,20 @@ export function CustomiseView({ products }: { products: Product[] }) {
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
               />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="verse-note">Note for us (optional)</Label>
+              <Textarea
+                id="verse-note"
+                rows={2}
+                maxLength={NOTE_MAX}
+                placeholder="Anything else we should know — placement, spacing, etc."
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+              <span className="self-end text-xs text-muted-foreground">
+                {note.length}/{NOTE_MAX}
+              </span>
             </div>
           </div>
 

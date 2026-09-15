@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckIcon, LockIcon } from "lucide-react";
+import { CheckIcon, LockIcon, TagIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { OrderSummary } from "@/components/checkout/order-summary";
@@ -21,6 +22,8 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const STEPS = ["Delivery", "Payment"] as const;
 
+type PromoPreview = { code: string; label: string; discountPence: number };
+
 export function CheckoutView() {
   const mounted = useMounted();
   const queryClient = useQueryClient();
@@ -28,6 +31,11 @@ export function CheckoutView() {
   const items = useCart((s) => s.items);
   const subtotal = useCart((s) => s.subtotal());
   const discountCode = useCart((s) => s.discountCode);
+  const setDiscountCode = useCart((s) => s.setDiscountCode);
+  const [promoInput, setPromoInput] = useState("");
+  const [promo, setPromo] = useState<PromoPreview | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [checkingPromo, setCheckingPromo] = useState(false);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +60,43 @@ export function CheckoutView() {
     return (sorted.find((b) => totalWeightGrams <= b.maxWeightGrams) ?? sorted.at(-1))?.price ?? 0;
   };
   const shippingCost = method ? priceForMethod(method) : 0;
+
+  // A code applied on the cart page carries over via cart state — re-resolve
+  // its label/amount here so the summary shows it instead of looking blank.
+  useEffect(() => {
+    if (!discountCode || promo?.code === discountCode) return;
+    fetch("/api/discounts/validate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: discountCode, subtotalPence: subtotal }),
+    })
+      .then((res) => (res.ok ? (res.json() as Promise<PromoPreview>) : null))
+      .then((data) => data && setPromo(data));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discountCode, subtotal]);
+
+  async function applyPromo() {
+    setCheckingPromo(true);
+    setPromoError(null);
+    try {
+      const res = await fetch("/api/discounts/validate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: promoInput, subtotalPence: subtotal }),
+      });
+      if (!res.ok) {
+        setPromo(null);
+        setDiscountCode(null);
+        setPromoError("That code isn't valid");
+        return;
+      }
+      const data = (await res.json()) as PromoPreview;
+      setPromo(data);
+      setDiscountCode(data.code);
+    } finally {
+      setCheckingPromo(false);
+    }
+  }
 
   if (!mounted) return null;
   if (items.length === 0) {
@@ -239,15 +284,45 @@ export function CheckoutView() {
                   Back
                 </Button>
                 <Button type="button" size="lg" disabled={submitting} onClick={onPay}>
-                  {submitting ? "Redirecting…" : `Pay ${formatPrice(subtotal + shippingCost)}`}
+                  {submitting
+                    ? "Redirecting…"
+                    : `Pay ${formatPrice(Math.max(0, subtotal - (promo?.discountPence ?? 0)) + shippingCost)}`}
                 </Button>
               </div>
             </div>
           )}
         </div>
 
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <OrderSummary shipping={step >= 0 ? shippingCost : undefined} />
+        <aside className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
+          <div className="rounded-xl border border-border bg-card p-6">
+            <form
+              className="flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                applyPromo();
+              }}
+            >
+              <div className="relative flex-1">
+                <TagIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={promoInput}
+                  onChange={(e) => setPromoInput(e.target.value)}
+                  placeholder="Promo code"
+                  className="pl-9"
+                />
+              </div>
+              <Button type="submit" variant="outline" disabled={checkingPromo}>
+                Apply
+              </Button>
+            </form>
+            {promoError && <p className="mt-2 text-xs text-destructive">{promoError}</p>}
+            {promo && <p className="mt-2 text-xs text-gold-dark">{promo.label} applied</p>}
+          </div>
+          <OrderSummary
+            shipping={step >= 0 ? shippingCost : undefined}
+            discount={promo?.discountPence ?? 0}
+            discountLabel={promo?.code}
+          />
         </aside>
       </div>
     </div>

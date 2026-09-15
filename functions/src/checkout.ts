@@ -194,10 +194,16 @@ export const createCheckoutSession = onCall(
         product_data: {
           name: line.name,
           ...(line.customVerse && {
-            description: `Custom verse: "${line.customVerse.text}" — ${line.customVerse.reference}`,
+            description: [
+              `Custom verse: "${line.customVerse.text}" — ${line.customVerse.reference}`,
+              line.customVerse.note && `Note: ${line.customVerse.note}`,
+            ]
+              .filter(Boolean)
+              .join(" · "),
             metadata: {
               customVerseText: line.customVerse.text,
               customVerseReference: line.customVerse.reference,
+              ...(line.customVerse.note && { customVerseNote: line.customVerse.note }),
             },
           }),
         },

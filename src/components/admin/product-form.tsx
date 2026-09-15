@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { XIcon } from "lucide-react";
 import { doc, collection } from "firebase/firestore";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -25,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import { COLOURS, DEFAULT_GARMENT_WEIGHT_GRAMS, SIZES } from "@/lib/constants";
 import { slugify } from "@/lib/format";
-import type { Product, ProductBadge, ProductCategory, ProductType } from "@/types";
+import type { ColourOption, Product, ProductBadge, ProductCategory, ProductType } from "@/types";
 
 const TYPES: ProductType[] = ["sweatshirt", "t-shirt", "hoodie"];
 const CATEGORIES: ProductCategory[] = ["men", "women", "unisex"];
@@ -64,8 +65,15 @@ export function ProductForm({ product }: { product?: Product }) {
     product?.compareAtPrice ? (product.compareAtPrice.amount / 100).toString() : "",
   );
   const [colourValues, setColourValues] = useState<string[]>(
-    product?.colours.map((c) => c.value) ?? [],
+    (product?.colours ?? [])
+      .map((c) => c.value)
+      .filter((v) => COLOUR_OPTIONS.some((o) => o.value === v)),
   );
+  const [customColours, setCustomColours] = useState<ColourOption[]>(
+    (product?.colours ?? []).filter((c) => !COLOUR_OPTIONS.some((o) => o.value === c.value)),
+  );
+  const [newColourLabel, setNewColourLabel] = useState("");
+  const [newColourHex, setNewColourHex] = useState("#4b5320");
   const [sizeValues, setSizeValues] = useState<string[]>(
     product?.sizes.map((s) => s.value) ?? [],
   );
@@ -92,8 +100,20 @@ export function ProductForm({ product }: { product?: Product }) {
     if (!slugEdited) setSlug(slugify(value));
   }
 
-  const selectedColours = COLOUR_OPTIONS.filter((c) => colourValues.includes(c.value));
+  const selectedColours = [
+    ...COLOUR_OPTIONS.filter((c) => colourValues.includes(c.value)),
+    ...customColours,
+  ];
   const selectedSizes = SIZES.filter((s) => sizeValues.includes(s.value));
+
+  function addCustomColour() {
+    const label = newColourLabel.trim();
+    if (!label) return;
+    const value = slugify(label);
+    if (selectedColours.some((c) => c.value === value)) return;
+    setCustomColours((prev) => [...prev, { value, label, hex: newColourHex }]);
+    setNewColourLabel("");
+  }
 
   const body = {
     id: productId,
@@ -306,6 +326,61 @@ export function ProductForm({ product }: { product?: Product }) {
                       {c.label}
                     </label>
                   ))}
+                </div>
+                {customColours.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {customColours.map((c) => (
+                      <span
+                        key={c.value}
+                        className="flex items-center gap-1.5 rounded-full border border-black/10 bg-white py-1 pl-1 pr-2 text-xs"
+                      >
+                        <span
+                          className="size-3.5 rounded-full border border-black/10"
+                          style={{ backgroundColor: c.hex }}
+                        />
+                        {c.label}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCustomColours((prev) => prev.filter((x) => x.value !== c.value))
+                          }
+                          aria-label={`Remove ${c.label}`}
+                          className="text-muted-foreground hover:text-rose-600"
+                        >
+                          <XIcon className="size-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-3 flex items-end gap-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="new-colour-swatch" className="text-xs">
+                      Custom colour
+                    </Label>
+                    <input
+                      id="new-colour-swatch"
+                      type="color"
+                      value={newColourHex}
+                      onChange={(e) => setNewColourHex(e.target.value)}
+                      className="h-9 w-9 cursor-pointer rounded-md border border-input p-1"
+                    />
+                  </div>
+                  <Input
+                    placeholder="Colour name, e.g. Sage Green"
+                    value={newColourLabel}
+                    onChange={(e) => setNewColourLabel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addCustomColour();
+                      }
+                    }}
+                    className="max-w-56"
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={addCustomColour}>
+                    Add colour
+                  </Button>
                 </div>
               </div>
               <div>

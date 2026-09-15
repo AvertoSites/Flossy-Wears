@@ -289,6 +289,12 @@ export default function AdminOrderDetailPage() {
                       <p className="mt-1 rounded-md bg-[#faf8f2] px-2 py-1 text-xs text-[#8a6d1a]">
                         Custom print: &ldquo;{line.customVerse.text}&rdquo; —{" "}
                         {line.customVerse.reference}
+                        {line.customVerse.note && (
+                          <>
+                            <br />
+                            Note: {line.customVerse.note}
+                          </>
+                        )}
                       </p>
                     )}
                   </div>

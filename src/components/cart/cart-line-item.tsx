@@ -63,6 +63,11 @@ export function CartLineItem({
         {item.customVerse && (
           <p className="text-xs italic text-gold-dark">
             &ldquo;{item.customVerse.text}&rdquo; — {item.customVerse.reference}
+            {item.customVerse.note && (
+              <span className="block not-italic text-muted-foreground">
+                Note: {item.customVerse.note}
+              </span>
+            )}
           </p>
         )}
 
