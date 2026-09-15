@@ -15,7 +15,7 @@ import { useAddToCart } from "@/lib/hooks/use-add-to-cart";
 import { useWishlist } from "@/lib/store/wishlist";
 import { useRecentlyViewed } from "@/lib/store/recently-viewed";
 import { useMounted } from "@/lib/hooks/use-mounted";
-import { site } from "@/lib/data/site";
+import { DEFAULT_GARMENT_WEIGHT_GRAMS } from "@/lib/constants";
 import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Product } from "@/types";
@@ -46,7 +46,8 @@ export function ProductPurchase({ product }: { product: Product }) {
     [product.variants, colour],
   );
 
-  const galleryImages = variantsForColour[0]?.images ?? product.images;
+  const variantImages = variantsForColour[0]?.images;
+  const galleryImages = variantImages?.length ? variantImages : product.images;
   const selectedVariant = variantsForColour.find((v) => v.size === size) ?? null;
   const stockForSize = (s: string) =>
     variantsForColour.find((v) => v.size === s)?.stock ?? 0;
@@ -72,6 +73,7 @@ export function ProductPurchase({ product }: { product: Product }) {
         compareAtPrice: selectedVariant.compareAtPrice?.amount,
         image: galleryImages[0],
         maxStock: selectedVariant.stock,
+        weightGrams: product.weightGrams ?? DEFAULT_GARMENT_WEIGHT_GRAMS,
       },
       qty,
     );
@@ -240,9 +242,7 @@ export function ProductPurchase({ product }: { product: Product }) {
             </div>
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <TruckIcon className="size-4" />
-              Free UK delivery over {formatPrice(site.freeShippingThreshold, {
-                compact: true,
-              })}
+              Free UK delivery
               {" · "}
               Dispatched in 1–2 working days
             </p>

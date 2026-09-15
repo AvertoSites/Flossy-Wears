@@ -60,6 +60,11 @@ export function CartLineItem({
         <p className="text-xs text-muted-foreground">
           {item.colourLabel} · {item.size.toUpperCase()}
         </p>
+        {item.customVerse && (
+          <p className="text-xs italic text-gold-dark">
+            &ldquo;{item.customVerse.text}&rdquo; — {item.customVerse.reference}
+          </p>
+        )}
 
         <div className="mt-auto flex items-center justify-between pt-2">
           <QuantityStepper

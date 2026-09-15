@@ -1,13 +1,16 @@
 import { CheckCircle2Icon } from "lucide-react";
 import { RatingStars } from "@/components/common/rating-stars";
+import { ReviewForm } from "@/components/product/review-form";
 import { formatDate } from "@/lib/format";
 import type { RatingSummary } from "@/lib/api/reviews";
 import type { Review } from "@/types";
 
 export function ProductReviews({
+  productId,
   reviews,
   summary,
 }: {
+  productId: string;
   reviews: Review[];
   summary: RatingSummary;
 }) {
@@ -50,7 +53,9 @@ export function ProductReviews({
           </div>
         </div>
 
-        <div className="flex flex-col divide-y divide-border">
+        <div className="flex flex-col gap-6">
+          <ReviewForm productId={productId} />
+          <div className="flex flex-col divide-y divide-border">
           {reviews.map((review) => (
             <article key={review.id} className="flex flex-col gap-2 py-5 first:pt-0">
               <div className="flex items-center justify-between">
@@ -72,6 +77,7 @@ export function ProductReviews({
               </p>
             </article>
           ))}
+          </div>
         </div>
       </div>
     </section>

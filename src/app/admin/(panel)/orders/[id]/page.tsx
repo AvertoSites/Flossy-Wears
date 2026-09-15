@@ -13,6 +13,7 @@ import {
   MapPinIcon,
 } from "lucide-react";
 import { adminApi } from "@/lib/admin/client";
+import { refundOrder } from "@/lib/firebase/functions";
 import { AdminHeader, Card } from "@/components/admin/ui";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import {
@@ -108,12 +109,19 @@ export default function AdminOrderDetailPage() {
   });
 
   const refund = useMutation({
-    mutationFn: () => adminApi.refundOrder(id),
+    mutationFn: () => refundOrder(id),
     onSuccess: (res) => {
       invalidate();
-      toast.success(
-        `${res.mock ? "Mock refund" : "Refund"} of ${formatPrice(res.amount)} issued`,
-      );
+      toast.success(`Refund of ${formatPrice(res.amount)} issued`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const refreshTracking = useMutation({
+    mutationFn: () => adminApi.refreshTracking(id),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Tracking updated");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -227,6 +235,10 @@ export default function AdminOrderDetailPage() {
               <BellIcon className="size-4 text-muted-foreground" />
               Email the customer a tracking update
             </label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Shipped, delivered, and cancelled always email the customer,
+              whether or not this is checked.
+            </p>
 
             <div className="mt-4 flex items-center gap-2">
               <Button
@@ -242,6 +254,16 @@ export default function AdminOrderDetailPage() {
               >
                 Preview customer view ↗
               </Link>
+              {carrier === "Royal Mail" && trackingNumber && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refreshTracking.mutate()}
+                  disabled={refreshTracking.isPending}
+                >
+                  {refreshTracking.isPending ? "Refreshing…" : "Refresh tracking"}
+                </Button>
+              )}
             </div>
           </Card>
 
@@ -263,6 +285,12 @@ export default function AdminOrderDetailPage() {
                     <p className="text-xs text-muted-foreground">
                       {line.colourLabel} · {line.size} · Qty {line.quantity}
                     </p>
+                    {line.customVerse && (
+                      <p className="mt-1 rounded-md bg-[#faf8f2] px-2 py-1 text-xs text-[#8a6d1a]">
+                        Custom print: &ldquo;{line.customVerse.text}&rdquo; —{" "}
+                        {line.customVerse.reference}
+                      </p>
+                    )}
                   </div>
                   <span className="text-sm tabular-nums">
                     {formatPrice(line.price * line.quantity)}
@@ -420,8 +448,7 @@ export default function AdminOrderDetailPage() {
         description={
           <span>
             This refunds the remaining balance to the original payment method via
-            Stripe{process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ? "" : " (mock — no Stripe key configured)"}.
-            The customer is emailed automatically.
+            Stripe.
           </span>
         }
         confirmLabel="Issue refund"

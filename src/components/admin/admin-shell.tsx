@@ -16,7 +16,7 @@ import {
   UsersIcon,
   WarehouseIcon,
 } from "lucide-react";
-import { useAdminAuth } from "@/lib/store/admin-auth";
+import { useAuth } from "@/lib/store/auth";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -34,7 +34,7 @@ const NAV = [
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const setAuthed = useAdminAuth((s) => s.setAuthed);
+  const signOut = useAuth((s) => s.signOut);
 
   return (
     <div className="flex min-h-screen bg-[#f4f1ea] text-[#1f1b16]">
@@ -72,7 +72,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => {
-              setAuthed(false);
+              signOut();
               router.replace("/admin/login");
             }}
             className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"

@@ -33,9 +33,6 @@ function SettingsForm({ settings }: { settings: StoreSettings }) {
   const qc = useQueryClient();
   const [storeName, setStoreName] = useState(settings.storeName);
   const [supportEmail, setSupportEmail] = useState(settings.supportEmail);
-  const [threshold, setThreshold] = useState(
-    (settings.freeShippingThreshold / 100).toString(),
-  );
   const [methods, setMethods] = useState(settings.shippingMethods);
 
   const save = useMutation({
@@ -43,7 +40,6 @@ function SettingsForm({ settings }: { settings: StoreSettings }) {
       adminApi.updateSettings({
         storeName,
         supportEmail,
-        freeShippingThreshold: Math.round(parseFloat(threshold || "0") * 100),
         shippingMethods: methods,
       }),
     onSuccess: () => {
@@ -85,24 +81,21 @@ function SettingsForm({ settings }: { settings: StoreSettings }) {
                 onChange={(e) => setSupportEmail(e.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="thr">Free delivery threshold (£)</Label>
-              <Input
-                id="thr"
-                inputMode="decimal"
-                value={threshold}
-                onChange={(e) => setThreshold(e.target.value)}
-              />
-            </div>
           </div>
         </Card>
 
         <Card title="Delivery methods">
-          <div className="flex flex-col gap-4">
+          <p className="mb-4 text-xs text-muted-foreground">
+            Shipping is free on every order for now. Each method below has one
+            price band per weight bracket — once real Royal Mail rates are
+            sorted out, split a band or edit its price here to start charging
+            for it.
+          </p>
+          <div className="flex flex-col gap-5">
             {methods.map((method, i) => (
               <div
                 key={method.id}
-                className="grid grid-cols-[1fr_100px] gap-3 border-b border-black/5 pb-3 last:border-0 last:pb-0"
+                className="border-b border-black/5 pb-4 last:border-0 last:pb-0"
               >
                 <div className="flex flex-col gap-1.5">
                   <Label>{method.label}</Label>
@@ -117,26 +110,101 @@ function SettingsForm({ settings }: { settings: StoreSettings }) {
                     }
                   />
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label>Price (£)</Label>
-                  <Input
-                    inputMode="decimal"
-                    value={(method.price / 100).toString()}
-                    onChange={(e) =>
+                <div className="mt-3 flex flex-col gap-2">
+                  {method.bands.map((band, bi) => (
+                    <div key={bi} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs">Up to weight (kg)</Label>
+                        <Input
+                          inputMode="decimal"
+                          value={(band.maxWeightGrams / 1000).toString()}
+                          onChange={(e) =>
+                            setMethods((m) =>
+                              m.map((x, xi) =>
+                                xi === i
+                                  ? {
+                                      ...x,
+                                      bands: x.bands.map((b, xbi) =>
+                                        xbi === bi
+                                          ? {
+                                              ...b,
+                                              maxWeightGrams: Math.round(
+                                                parseFloat(e.target.value || "0") * 1000,
+                                              ),
+                                            }
+                                          : b,
+                                      ),
+                                    }
+                                  : x,
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs">Price (£)</Label>
+                        <Input
+                          inputMode="decimal"
+                          value={(band.price / 100).toString()}
+                          onChange={(e) =>
+                            setMethods((m) =>
+                              m.map((x, xi) =>
+                                xi === i
+                                  ? {
+                                      ...x,
+                                      bands: x.bands.map((b, xbi) =>
+                                        xbi === bi
+                                          ? {
+                                              ...b,
+                                              price: Math.round(
+                                                parseFloat(e.target.value || "0") * 100,
+                                              ),
+                                            }
+                                          : b,
+                                      ),
+                                    }
+                                  : x,
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={method.bands.length <= 1}
+                        onClick={() =>
+                          setMethods((m) =>
+                            m.map((x, xi) =>
+                              xi === i
+                                ? { ...x, bands: x.bands.filter((_, xbi) => xbi !== bi) }
+                                : x,
+                            ),
+                          )
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="self-start"
+                    onClick={() =>
                       setMethods((m) =>
                         m.map((x, xi) =>
                           xi === i
-                            ? {
-                                ...x,
-                                price: Math.round(
-                                  parseFloat(e.target.value || "0") * 100,
-                                ),
-                              }
+                            ? { ...x, bands: [...x.bands, { maxWeightGrams: 0, price: 0 }] }
                             : x,
                         ),
                       )
                     }
-                  />
+                  >
+                    Add weight band
+                  </Button>
                 </div>
               </div>
             ))}

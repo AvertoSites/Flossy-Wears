@@ -40,6 +40,11 @@ export function OrderSummary({
               <p className="text-xs text-muted-foreground">
                 {item.colourLabel} · {item.size.toUpperCase()}
               </p>
+              {item.customVerse && (
+                <p className="truncate text-xs italic text-gold-dark">
+                  &ldquo;{item.customVerse.text}&rdquo;
+                </p>
+              )}
             </div>
             <span className="text-sm">
               {formatPrice(item.price * item.quantity)}

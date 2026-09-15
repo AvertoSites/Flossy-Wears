@@ -1,18 +1,22 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
-import { getOrder } from "@/lib/api";
+import { useAuth } from "@/lib/store/auth";
+import { useCustomerOrder } from "@/lib/firebase/orders";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { CartSummary } from "@/components/cart/cart-summary";
+import { DeliveryProgress } from "@/components/common/delivery-progress";
 import { formatDate, formatPrice } from "@/lib/format";
 
-export default async function OrderDetailPage({
-  params,
-}: PageProps<"/account/orders/[id]">) {
-  const { id } = await params;
-  const order = await getOrder(id);
+export default function OrderDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const uid = useAuth((s) => s.user?.uid);
+  const { data: order, isPending } = useCustomerOrder(uid, id);
+
+  if (isPending) return null;
   if (!order) notFound();
 
   return (
@@ -35,6 +39,16 @@ export default async function OrderDetailPage({
         <Badge variant="outline" className="capitalize">
           {order.status}
         </Badge>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-5">
+        <DeliveryProgress
+          status={order.status}
+          carrier={order.carrier}
+          trackingNumber={order.trackingNumber}
+          trackingUrl={order.trackingUrl}
+          timeline={order.timeline}
+        />
       </div>
 
       <div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
@@ -86,16 +100,6 @@ export default async function OrderDetailPage({
             shipping={order.shipping}
             discount={order.discount}
           />
-          <Button asChild variant="outline" className="mt-4 w-full">
-            <Link href={`/track?order=${order.number}`}>Track this order</Link>
-          </Button>
-          {order.trackingUrl && (
-            <Button asChild variant="ghost" size="sm" className="mt-2 w-full">
-              <a href={order.trackingUrl} target="_blank" rel="noreferrer">
-                Track with carrier ↗
-              </a>
-            </Button>
-          )}
         </div>
       </div>
     </div>

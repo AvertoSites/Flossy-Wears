@@ -3,19 +3,21 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/store/auth";
-import { useMounted } from "@/lib/hooks/use-mounted";
 
-/** Client-side guard for the mock account area. */
+/** Client-side guard for the account area — requires sign-in and a verified email. */
 export function AccountGate({ children }: { children: React.ReactNode }) {
-  const mounted = useMounted();
-  const user = useAuth((s) => s.user);
+  const status = useAuth((s) => s.status);
+  const emailVerified = useAuth((s) => s.emailVerified);
   const router = useRouter();
 
   useEffect(() => {
-    if (mounted && !user) router.replace("/account/login");
-  }, [mounted, user, router]);
+    if (status === "signed-out") router.replace("/account/login");
+    else if (status === "signed-in" && !emailVerified) {
+      router.replace("/account/verify-email");
+    }
+  }, [status, emailVerified, router]);
 
-  if (!mounted || !user) {
+  if (status !== "signed-in" || !emailVerified) {
     return <div className="container-page py-24" />;
   }
 

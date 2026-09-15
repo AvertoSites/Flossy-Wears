@@ -121,6 +121,11 @@ export default function AdminOrdersPage() {
                   >
                     {order.number}
                   </Link>
+                  {order.lines.some((l) => l.customVerse) && (
+                    <span className="ml-1.5 rounded-full bg-[#faf8f2] px-1.5 py-0.5 text-[0.65rem] text-[#8a6d1a]">
+                      Custom
+                    </span>
+                  )}
                 </Td>
                 <Td className="whitespace-nowrap text-muted-foreground">
                   {formatDate(order.placedAt)}

@@ -1,5 +1,6 @@
 "use client";
 
+import { firebaseAuth } from "@/lib/firebase/client";
 import type {
   AdminReview,
   AdminSummary,
@@ -20,87 +21,97 @@ async function json<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/**
+ * Every `/api/admin/*` route now verifies this bearer token server-side (see
+ * `src/lib/server/require-admin.ts`) — the routes are the real security
+ * boundary, `AdminGate` is just UI routing.
+ */
+async function authHeaders(): Promise<HeadersInit> {
+  const idToken = await firebaseAuth.currentUser?.getIdToken();
+  if (!idToken) throw new Error("Not signed in");
+  return { authorization: `Bearer ${idToken}`, "content-type": "application/json" };
+}
+
+async function authedFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const headers = await authHeaders();
+  return fetch(url, { ...init, headers: { ...headers, ...init.headers } });
+}
+
 export const adminApi = {
-  summary: () => fetch("/api/admin/summary").then(json<AdminSummary>),
+  summary: () => authedFetch("/api/admin/summary").then(json<AdminSummary>),
 
   orders: (params: { status?: string; q?: string } = {}) => {
     const qs = new URLSearchParams();
     if (params.status) qs.set("status", params.status);
     if (params.q) qs.set("q", params.q);
-    return fetch(`/api/admin/orders?${qs}`).then(json<{ orders: Order[] }>);
+    return authedFetch(`/api/admin/orders?${qs}`).then(json<{ orders: Order[] }>);
   },
   order: (id: string) =>
-    fetch(`/api/admin/orders/${id}`).then(json<{ order: Order }>),
+    authedFetch(`/api/admin/orders/${id}`).then(json<{ order: Order }>),
   updateOrder: (id: string, body: Record<string, unknown>) =>
-    fetch(`/api/admin/orders/${id}`, {
+    authedFetch(`/api/admin/orders/${id}`, {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     }).then(json<{ order: Order }>),
-  refundOrder: (id: string, amount?: number) =>
-    fetch(`/api/admin/orders/${id}/refund`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ amount }),
-    }).then(json<{ order: Order; amount: number; mock: boolean }>),
 
-  products: () =>
-    fetch("/api/admin/products").then(json<{ products: Product[] }>),
+  products: () => authedFetch("/api/admin/products").then(json<{ products: Product[] }>),
   product: (id: string) =>
-    fetch(`/api/admin/products/${id}`).then(json<{ product: Product }>),
-  updateProduct: (id: string, body: Record<string, unknown>) =>
-    fetch(`/api/admin/products/${id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
+    authedFetch(`/api/admin/products/${id}`).then(json<{ product: Product }>),
+  createProduct: (body: Record<string, unknown>) =>
+    authedFetch("/api/admin/products", {
+      method: "POST",
       body: JSON.stringify(body),
     }).then(json<{ product: Product }>),
+  updateProduct: (id: string, body: Record<string, unknown>) =>
+    authedFetch(`/api/admin/products/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }).then(json<{ product: Product }>),
+  deleteProduct: (id: string) =>
+    authedFetch(`/api/admin/products/${id}`, { method: "DELETE" }).then(json<{ ok: boolean }>),
 
-  inventory: () =>
-    fetch("/api/admin/inventory").then(json<{ rows: LowStockRow[] }>),
+  inventory: () => authedFetch("/api/admin/inventory").then(json<{ rows: LowStockRow[] }>),
 
-  customers: () =>
-    fetch("/api/admin/customers").then(json<{ customers: Customer[] }>),
+  customers: () => authedFetch("/api/admin/customers").then(json<{ customers: Customer[] }>),
   customer: (email: string) =>
-    fetch(`/api/admin/customers/${encodeURIComponent(email)}`).then(
+    authedFetch(`/api/admin/customers/${encodeURIComponent(email)}`).then(
       json<{ customer: Customer; orders: Order[] }>,
     ),
 
-  discounts: () =>
-    fetch("/api/admin/discounts").then(json<{ discounts: Discount[] }>),
+  discounts: () => authedFetch("/api/admin/discounts").then(json<{ discounts: Discount[] }>),
   createDiscount: (body: { code: string; percentOff: number; label?: string }) =>
-    fetch("/api/admin/discounts", {
+    authedFetch("/api/admin/discounts", {
       method: "POST",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     }).then(json<{ discount: Discount }>),
   setDiscountActive: (code: string, active: boolean) =>
-    fetch(`/api/admin/discounts/${encodeURIComponent(code)}`, {
+    authedFetch(`/api/admin/discounts/${encodeURIComponent(code)}`, {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify({ active }),
     }).then(json<{ discount: Discount }>),
   deleteDiscount: (code: string) =>
-    fetch(`/api/admin/discounts/${encodeURIComponent(code)}`, {
+    authedFetch(`/api/admin/discounts/${encodeURIComponent(code)}`, {
       method: "DELETE",
     }).then(json<{ ok: boolean }>),
 
-  reviews: () =>
-    fetch("/api/admin/reviews").then(json<{ reviews: AdminReview[] }>),
+  reviews: () => authedFetch("/api/admin/reviews").then(json<{ reviews: AdminReview[] }>),
   setReviewPublished: (id: string, published: boolean) =>
-    fetch("/api/admin/reviews", {
+    authedFetch("/api/admin/reviews", {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify({ id, published }),
     }).then(json<{ review: AdminReview }>),
 
-  payments: () => fetch("/api/admin/payments").then(json<PaymentsOverview>),
+  payments: () => authedFetch("/api/admin/payments").then(json<PaymentsOverview>),
 
-  settings: () =>
-    fetch("/api/admin/settings").then(json<{ settings: StoreSettings }>),
+  settings: () => authedFetch("/api/admin/settings").then(json<{ settings: StoreSettings }>),
   updateSettings: (body: Partial<StoreSettings>) =>
-    fetch("/api/admin/settings", {
+    authedFetch("/api/admin/settings", {
       method: "PUT",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     }).then(json<{ settings: StoreSettings }>),
+
+  refreshTracking: (id: string) =>
+    authedFetch(`/api/admin/orders/${id}/tracking`, { method: "POST" }).then(
+      json<{ order: Order }>,
+    ),
 };

@@ -9,6 +9,8 @@ type WishlistState = {
   toggle: (slug: string) => void;
   has: (slug: string) => boolean;
   clear: () => void;
+  /** Bulk-replace, used by WishlistSync when merging with the signed-in user's remote list. */
+  setAll: (slugs: string[]) => void;
 };
 
 export const useWishlist = create<WishlistState>()(
@@ -24,6 +26,7 @@ export const useWishlist = create<WishlistState>()(
         })),
       has: (slug) => get().slugs.includes(slug),
       clear: () => set({ slugs: [] }),
+      setAll: (slugs) => set({ slugs }),
     }),
     {
       name: "flossywears-wishlist",

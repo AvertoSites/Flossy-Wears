@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { PageHeader } from "@/components/common/page-header";
 import { Prose } from "@/components/common/prose";
+import { site } from "@/lib/data/site";
 
 export const metadata: Metadata = {
   title: "Size guide",
@@ -68,7 +68,7 @@ export default function SizingPage() {
           </ul>
           <p>
             Still unsure? Email{" "}
-            <Link href="/contact">our team</Link> with your usual size and
+            <a href={`mailto:${site.email}`}>our team</a> with your usual size and
             we&rsquo;ll help.
           </p>
         </Prose>

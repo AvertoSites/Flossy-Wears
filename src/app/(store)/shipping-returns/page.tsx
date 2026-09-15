@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/common/page-header";
 import { Prose } from "@/components/common/prose";
+import { site } from "@/lib/data/site";
 
 export const metadata: Metadata = {
   title: "Shipping & returns",
@@ -62,8 +63,8 @@ export default function ShippingReturnsPage() {
 
           <h2>Faulty items</h2>
           <p>
-            If something arrives damaged or develops a fault, contact{" "}
-            <Link href="/contact">our team</Link> with your order number and a
+            If something arrives damaged or develops a fault, email{" "}
+            <a href={`mailto:${site.email}`}>our team</a> with your order number and a
             photo and we&rsquo;ll put it right.
           </p>
         </Prose>

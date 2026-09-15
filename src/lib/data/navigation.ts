@@ -70,6 +70,7 @@ export const primaryNav: NavItem[] = [
     ],
   },
   { label: "The Four", href: "/the-four" },
+  { label: "Customise Your Own", href: "/customise" },
   { label: "Our Story", href: "/about" },
 ];
 
@@ -81,6 +82,7 @@ export const footerNav: NavColumn[] = [
       { label: "The Four", href: "/collections/the-four" },
       { label: "New arrivals", href: "/collections/new-arrivals" },
       { label: "Sale", href: "/collections/sale" },
+      { label: "Customise your own", href: "/customise" },
       { label: "Gift cards", href: "/shop" },
     ],
   },
@@ -90,7 +92,6 @@ export const footerNav: NavColumn[] = [
       { label: "Size guide", href: "/sizing" },
       { label: "Shipping & returns", href: "/shipping-returns" },
       { label: "FAQ", href: "/faq" },
-      { label: "Contact us", href: "/contact" },
       { label: "Track order", href: "/track" },
     ],
   },

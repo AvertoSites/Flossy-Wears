@@ -2,26 +2,28 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { TagIcon } from "lucide-react";
+import { TagIcon, TruckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CartLineItem } from "@/components/cart/cart-line-item";
 import { CartSummary } from "@/components/cart/cart-summary";
-import { FreeShippingBar } from "@/components/cart/free-shipping-bar";
 import { EmptyCart } from "@/components/cart/empty-cart";
 import { useCart } from "@/lib/store/cart";
 import { useMounted } from "@/lib/hooks/use-mounted";
-import { applyPromo } from "@/lib/api/checkout";
 import { pluralise } from "@/lib/format";
+
+type PromoPreview = { code: string; label: string; discountPence: number };
 
 export function CartPageView() {
   const mounted = useMounted();
   const items = useCart((s) => s.items);
   const subtotal = useCart((s) => s.subtotal());
   const count = useCart((s) => s.totalItems());
+  const setDiscountCode = useCart((s) => s.setDiscountCode);
   const [promoInput, setPromoInput] = useState("");
-  const [promo, setPromo] = useState<ReturnType<typeof applyPromo>>(null);
+  const [promo, setPromo] = useState<PromoPreview | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
   if (!mounted || items.length === 0) {
     return (
@@ -42,7 +44,10 @@ export function CartPageView() {
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_360px]">
         <div className="flex flex-col gap-6">
-          <FreeShippingBar subtotal={subtotal} />
+          <p className="flex items-center gap-2 text-sm text-gold-dark">
+            <TruckIcon className="size-4" />
+            Free UK delivery
+          </p>
           <div className="flex flex-col divide-y divide-border border-y border-border">
             {items.map((item) => (
               <div key={item.id} className="py-6 first:pt-0 last:pb-0">
@@ -57,15 +62,27 @@ export function CartPageView() {
 
           <form
             className="flex gap-2"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              const result = applyPromo(promoInput, subtotal);
-              if (result) {
-                setPromo(result);
+              setChecking(true);
+              try {
+                const res = await fetch("/api/discounts/validate", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ code: promoInput, subtotalPence: subtotal }),
+                });
+                if (!res.ok) {
+                  setPromo(null);
+                  setDiscountCode(null);
+                  setPromoError("That code isn't valid");
+                  return;
+                }
+                const data = (await res.json()) as PromoPreview;
+                setPromo(data);
+                setDiscountCode(data.code);
                 setPromoError(null);
-              } else {
-                setPromo(null);
-                setPromoError("That code isn't valid");
+              } finally {
+                setChecking(false);
               }
             }}
           >
@@ -78,7 +95,7 @@ export function CartPageView() {
                 className="pl-9"
               />
             </div>
-            <Button type="submit" variant="outline">
+            <Button type="submit" variant="outline" disabled={checking}>
               Apply
             </Button>
           </form>

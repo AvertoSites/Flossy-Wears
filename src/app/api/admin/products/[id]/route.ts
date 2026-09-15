@@ -1,28 +1,47 @@
-import { getAdminProduct, updateAdminProduct } from "@/lib/api/admin";
+import {
+  deleteAdminProduct,
+  getAdminProduct,
+  updateAdminProduct,
+  type ProductFormInput,
+} from "@/lib/api/admin";
+import { withAdmin } from "@/lib/server/require-admin";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  const product = await getAdminProduct(id);
-  if (!product) return Response.json({ error: "Not found" }, { status: 404 });
-  return Response.json({ product }, { headers: { "cache-control": "no-store" } });
+  return withAdmin(request, async () => {
+    const { id } = await params;
+    const product = await getAdminProduct(id);
+    if (!product) return Response.json({ error: "Not found" }, { status: 404 });
+    return Response.json({ product }, { headers: { "cache-control": "no-store" } });
+  });
 }
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-  const product = await updateAdminProduct(id, {
-    price: body.price as number | undefined,
-    compareAtPrice: body.compareAtPrice as number | null | undefined,
-    badges: body.badges as never,
-    active: body.active as boolean | undefined,
-    variantStock: body.variantStock as Record<string, number> | undefined,
+  return withAdmin(request, async () => {
+    const { id } = await params;
+    const body = (await request.json().catch(() => ({}))) as { slug?: string } & Partial<
+      ProductFormInput & { variantStock: Record<string, number> }
+    >;
+    const result = await updateAdminProduct(id, body);
+    if (!result) return Response.json({ error: "Not found" }, { status: 404 });
+    if ("error" in result) return Response.json(result, { status: 400 });
+    return Response.json({ product: result });
   });
-  if (!product) return Response.json({ error: "Not found" }, { status: 404 });
-  return Response.json({ product });
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  return withAdmin(request, async () => {
+    const { id } = await params;
+    const ok = await deleteAdminProduct(id);
+    if (!ok) return Response.json({ error: "Not found" }, { status: 404 });
+    return Response.json({ ok: true });
+  });
 }

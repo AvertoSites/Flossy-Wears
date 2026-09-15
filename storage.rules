@@ -1,0 +1,27 @@
+rules_version = '2';
+
+// Deploy via `firebase deploy --only storage`. Product photography only —
+// this app doesn't use Storage for anything else.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAdmin() {
+      return request.auth != null &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Public product photos: anyone can view (they're rendered on the public
+    // storefront), only an admin can upload/replace/delete. Capped at 10MB,
+    // images only.
+    match /product-images/{productId}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() &&
+        request.resource.size < 10 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

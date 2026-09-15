@@ -1,6 +1,10 @@
 import "server-only";
 
-import { getStore, type StoredReview } from "@/lib/server/store";
+import { FieldValue } from "firebase-admin/firestore";
+import { revalidateTag } from "next/cache";
+import Stripe from "stripe";
+import { adminDb, adminStorage, stripUndefinedDeep } from "@/lib/firebase/admin";
+import { sendTrackingUpdateEmail } from "@/lib/email/resend";
 import type {
   AdminSummary,
   Customer,
@@ -11,18 +15,42 @@ import type {
   OrderStatus,
   PaymentsOverview,
   Product,
+  Review,
   StoreSettings,
 } from "@/types";
+
+/**
+ * Firestore-backed admin data layer — every `/api/admin/*` route calls
+ * `requireAdmin(request)` (see `src/lib/server/require-admin.ts`) before any
+ * of these run. Replaces the in-memory `getStore()` mock; same exported
+ * signatures, so the admin UI pages barely changed.
+ */
 
 function now() {
   return new Date().toISOString();
 }
 
-function addEvent(order: Order, event: Omit<OrderEvent, "id" | "at">) {
-  order.timeline = [
-    ...(order.timeline ?? []),
-    { id: `evt_${Math.random().toString(36).slice(2, 9)}`, at: now(), ...event },
-  ];
+function orderEvent(event: Omit<OrderEvent, "id" | "at">): OrderEvent {
+  // Timeline events live inside an array field — Firestore's admin SDK
+  // rejects `undefined` values nested inside array elements even with
+  // `ignoreUndefinedProperties` set (that only covers plain object fields),
+  // so strip any undefined keys (e.g. an event with no `detail`) here.
+  const clean = Object.fromEntries(
+    Object.entries(event).filter(([, v]) => v !== undefined),
+  ) as Omit<OrderEvent, "id" | "at">;
+  return { id: `evt_${Math.random().toString(36).slice(2, 9)}`, at: now(), ...clean };
+}
+
+async function findOrderRef(id: string) {
+  const byId = adminDb.collection("orders").doc(id);
+  const snap = await byId.get();
+  if (snap.exists) return byId;
+  const byNumber = await adminDb
+    .collection("orders")
+    .where("number", "==", id)
+    .limit(1)
+    .get();
+  return byNumber.empty ? null : byNumber.docs[0].ref;
 }
 
 /* ---------------------------------- orders --------------------------------- */
@@ -31,16 +59,17 @@ export async function listOrders(params: {
   status?: string;
   q?: string;
 } = {}): Promise<Order[]> {
-  let orders = [...getStore().orders];
+  let query: FirebaseFirestore.Query = adminDb.collection("orders");
   if (params.status && params.status !== "all") {
     if (params.status === "unfulfilled") {
-      orders = orders.filter(
-        (o) => o.status === "processing" || o.status === "packed",
-      );
+      query = query.where("status", "in", ["processing", "packed"]);
     } else {
-      orders = orders.filter((o) => o.status === params.status);
+      query = query.where("status", "==", params.status);
     }
   }
+  const snap = await query.get();
+  let orders = snap.docs.map((d) => d.data() as Order);
+
   if (params.q) {
     const q = params.q.toLowerCase();
     orders = orders.filter(
@@ -50,13 +79,14 @@ export async function listOrders(params: {
         o.customerEmail?.toLowerCase().includes(q),
     );
   }
-  return orders;
+  return orders.sort((a, b) => b.placedAt.localeCompare(a.placedAt));
 }
 
 export async function getOrderById(id: string): Promise<Order | null> {
-  return (
-    getStore().orders.find((o) => o.id === id || o.number === id) ?? null
-  );
+  const ref = await findOrderRef(id);
+  if (!ref) return null;
+  const snap = await ref.get();
+  return (snap.data() as Order) ?? null;
 }
 
 export async function updateFulfillment(
@@ -69,47 +99,90 @@ export async function updateFulfillment(
     notifyCustomer?: boolean;
   },
 ): Promise<Order | null> {
-  const order = getStore().orders.find((o) => o.id === id || o.number === id);
-  if (!order) return null;
+  const ref = await findOrderRef(id);
+  if (!ref) return null;
 
-  const changes: string[] = [];
+  let statusChanged = false;
+  const updated = await adminDb.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const order = snap.data() as Order;
+    const changes: string[] = [];
+    const patch: Record<string, unknown> = {};
 
-  if (input.carrier !== undefined) order.carrier = input.carrier || undefined;
-  if (input.trackingNumber !== undefined)
-    order.trackingNumber = input.trackingNumber || undefined;
-  if (input.trackingUrl !== undefined)
-    order.trackingUrl = input.trackingUrl || undefined;
+    if (input.carrier !== undefined) patch.carrier = input.carrier || FieldValue.delete();
+    if (input.trackingNumber !== undefined)
+      patch.trackingNumber = input.trackingNumber || FieldValue.delete();
+    if (input.trackingUrl !== undefined)
+      patch.trackingUrl = input.trackingUrl || FieldValue.delete();
 
-  if (input.status && input.status !== order.status) {
-    order.status = input.status;
-    changes.push(`Status set to ${input.status}`);
-    if (input.status === "shipped") order.shippedAt = now();
-    if (input.status === "delivered") order.deliveredAt = now();
-  }
+    if (input.status && input.status !== order.status) {
+      patch.status = input.status;
+      changes.push(`Status set to ${input.status}`);
+      if (input.status === "shipped") patch.shippedAt = now();
+      if (input.status === "delivered") patch.deliveredAt = now();
+      statusChanged = true;
+    }
 
-  if (order.trackingNumber || order.carrier) {
-    changes.push(
-      `Tracking: ${order.carrier ?? "carrier"} ${order.trackingNumber ?? ""}`.trim(),
-    );
-  }
+    const trackingNumber = input.trackingNumber ?? order.trackingNumber;
+    const carrier = input.carrier ?? order.carrier;
+    if (trackingNumber || carrier) {
+      changes.push(`Tracking: ${carrier ?? "carrier"} ${trackingNumber ?? ""}`.trim());
+    }
 
-  addEvent(order, {
-    kind: "fulfillment",
-    label: changes[0] ?? "Fulfillment updated",
-    detail: order.trackingNumber
-      ? `${order.carrier ?? ""} ${order.trackingNumber}`.trim()
-      : undefined,
+    const timeline = [
+      ...(order.timeline ?? []),
+      orderEvent({
+        kind: "fulfillment",
+        label: changes[0] ?? "Fulfillment updated",
+        detail: trackingNumber ? `${carrier ?? ""} ${trackingNumber}`.trim() : undefined,
+      }),
+    ];
+
+    patch.timeline = timeline;
+    tx.update(ref, patch);
+    return { ...order, ...patch, timeline } as Order;
   });
 
-  if (input.notifyCustomer) {
-    addEvent(order, {
-      kind: "notification",
-      label: `Tracking update emailed to ${order.customerEmail ?? "customer"}`,
-    });
-    // TODO(email): send via Resend once wired.
-  }
+  // Shipped/delivered/cancelled are the transitions a customer needs to hear
+  // about regardless of whether the admin remembered to tick "notify" —
+  // everything else (processing, packed, a tracking-number-only edit) stays
+  // opt-in via the checkbox.
+  const ALWAYS_NOTIFY_STATUSES: OrderStatus[] = ["shipped", "delivered", "cancelled"];
+  const shouldNotify =
+    input.notifyCustomer || (statusChanged && ALWAYS_NOTIFY_STATUSES.includes(updated.status));
 
-  return order;
+  if (shouldNotify) {
+    await notifyCustomerOfUpdate(updated);
+    return getOrderById(id);
+  }
+  return updated;
+}
+
+/** Separate from `updateFulfillment`'s transaction — email sends are a network call and shouldn't run inside a Firestore transaction (which can retry on contention and would resend). */
+async function notifyCustomerOfUpdate(order: Order): Promise<void> {
+  const ref = await findOrderRef(order.id);
+  if (!ref || !order.customerEmail) return;
+
+  const result = await sendTrackingUpdateEmail({
+    to: order.customerEmail,
+    orderNumber: order.number,
+    status: order.status,
+    carrier: order.carrier,
+    trackingNumber: order.trackingNumber,
+    trackingUrl: order.trackingUrl,
+  });
+
+  await ref.update({
+    timeline: FieldValue.arrayUnion(
+      orderEvent({
+        kind: "notification",
+        label: result.sent
+          ? `Tracking update emailed to ${order.customerEmail}`
+          : `Tracking update email NOT sent to ${order.customerEmail}`,
+        detail: result.sent ? undefined : result.error,
+      }),
+    ),
+  });
 }
 
 export async function addOrderNote(
@@ -117,123 +190,279 @@ export async function addOrderNote(
   body: string,
   author = "Admin",
 ): Promise<Order | null> {
-  const order = getStore().orders.find((o) => o.id === id || o.number === id);
-  if (!order) return null;
-  order.notes = [
-    ...(order.notes ?? []),
-    { id: `note_${Math.random().toString(36).slice(2, 9)}`, at: now(), author, body },
-  ];
-  addEvent(order, { kind: "note", label: "Internal note added", detail: body });
-  return order;
-}
+  const ref = await findOrderRef(id);
+  if (!ref) return null;
 
-export type RefundResult = {
-  order: Order;
-  amount: number;
-  mock: boolean;
-};
-
-export async function refundOrder(
-  id: string,
-  amountPence?: number,
-): Promise<RefundResult | null> {
-  const order = getStore().orders.find((o) => o.id === id || o.number === id);
-  if (!order) return null;
-
-  const alreadyRefunded = order.refundedAmount ?? 0;
-  const maxRefund = order.total - alreadyRefunded;
-  const amount = Math.min(amountPence ?? maxRefund, maxRefund);
-  if (amount <= 0) return { order, amount: 0, mock: true };
-
-  let mock = true;
-  const secret = process.env.STRIPE_SECRET_KEY;
-  if (secret && order.stripePaymentIntentId?.startsWith("pi_") && order.stripePaymentIntentId.length > 12) {
-    try {
-      const Stripe = (await import("stripe")).default;
-      const stripe = new Stripe(secret);
-      await stripe.refunds.create({
-        payment_intent: order.stripePaymentIntentId,
-        amount,
-      });
-      mock = false;
-    } catch {
-      mock = true;
-    }
-  }
-
-  order.refundedAmount = alreadyRefunded + amount;
-  order.paymentStatus =
-    order.refundedAmount >= order.total ? "refunded" : "partially_refunded";
-  if (order.paymentStatus === "refunded" && order.status !== "delivered") {
-    order.status = "cancelled";
-  }
-  addEvent(order, {
-    kind: "refund",
-    label: `${mock ? "Mock r" : "R"}efund of £${(amount / 100).toFixed(2)} issued`,
+  return adminDb.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const order = snap.data() as Order;
+    const notes = [
+      ...(order.notes ?? []),
+      { id: `note_${Math.random().toString(36).slice(2, 9)}`, at: now(), author, body },
+    ];
+    const timeline = [
+      ...(order.timeline ?? []),
+      orderEvent({ kind: "note", label: "Internal note added", detail: body }),
+    ];
+    tx.update(ref, { notes, timeline });
+    return { ...order, notes, timeline } as Order;
   });
-
-  return { order, amount, mock };
 }
 
 /* --------------------------------- products -------------------------------- */
 
 export async function listAdminProducts(): Promise<Product[]> {
-  return [...getStore().products];
+  const snap = await adminDb.collection("products").get();
+  return snap.docs.map((d) => d.data() as Product);
 }
 
 export async function getAdminProduct(id: string): Promise<Product | null> {
-  return (
-    getStore().products.find((p) => p.id === id || p.slug === id) ?? null
-  );
+  const byId = await adminDb.collection("products").doc(id).get();
+  if (byId.exists) return byId.data() as Product;
+  const bySlug = await adminDb
+    .collection("products")
+    .where("slug", "==", id)
+    .limit(1)
+    .get();
+  return bySlug.empty ? null : (bySlug.docs[0].data() as Product);
+}
+
+/** `colour.value:size.value` — stable across edits even when a product's variant ids change (e.g. slug renamed). */
+function variantKey(colour: string, size: string) {
+  return `${colour}:${size}`;
+}
+
+function buildVariants(params: {
+  slug: string;
+  colours: Product["colours"];
+  sizes: Product["sizes"];
+  price: number;
+  compareAtPrice?: number;
+  stockByKey?: Record<string, number>;
+  /** Per-colourway photo galleries from before this regenerate — the admin
+   * form doesn't manage these directly, so preserve whatever a variant
+   * already had rather than silently wiping it every time colours/sizes/price change. */
+  imagesByKey?: Record<string, string[]>;
+}): Product["variants"] {
+  const variants: Product["variants"] = [];
+  for (const colour of params.colours) {
+    for (const size of params.sizes) {
+      const key = variantKey(colour.value, size.value);
+      variants.push({
+        id: `${params.slug}-${colour.value}-${size.value}`,
+        sku: `${params.slug}-${colour.value}-${size.value}`.toUpperCase(),
+        colour: colour.value,
+        size: size.value,
+        price: { amount: params.price, currency: "GBP" },
+        // Omit the key entirely when there's no compare-at price, rather
+        // than setting it to `undefined` — Firestore's admin SDK rejects
+        // `undefined` values nested inside array elements (`ignoreUndefinedProperties`
+        // only covers plain object fields, not array items).
+        ...(typeof params.compareAtPrice === "number" && {
+          compareAtPrice: { amount: params.compareAtPrice, currency: "GBP" },
+        }),
+        stock: Math.max(0, Math.round(params.stockByKey?.[key] ?? 0)),
+        images: params.imagesByKey?.[key] ?? [],
+      });
+    }
+  }
+  return variants;
+}
+
+export type ProductFormInput = {
+  name: string;
+  tagline: string;
+  description: string;
+  verse: { text: string; reference: string };
+  type: Product["type"];
+  category: Product["category"];
+  collectionSlugs: string[];
+  price: number;
+  compareAtPrice?: number | null;
+  colours: Product["colours"];
+  sizes: Product["sizes"];
+  images: string[];
+  badges: Product["badges"];
+  fabric: string;
+  care: string[];
+  fit: string;
+  weightGrams: number;
+  active: boolean;
+  customizable: boolean;
+  /** Keyed by `colour.value:size.value` — see `variantKey`. */
+  stockByKey: Record<string, number>;
+};
+
+/** `id` is pre-generated client-side (so Storage image uploads have somewhere to live before the product doc exists) and used as the Firestore doc id. */
+export async function createAdminProduct(
+  id: string,
+  slug: string,
+  input: ProductFormInput,
+): Promise<Product | { error: string }> {
+  const cleanSlug = slug.trim().toLowerCase();
+  if (!cleanSlug) return { error: "Slug is required" };
+  const existing = await adminDb
+    .collection("products")
+    .where("slug", "==", cleanSlug)
+    .limit(1)
+    .get();
+  if (!existing.empty) return { error: "That slug is already in use" };
+  if (input.colours.length === 0 || input.sizes.length === 0) {
+    return { error: "Pick at least one colour and one size" };
+  }
+
+  const product: Product = {
+    id,
+    slug: cleanSlug,
+    name: input.name,
+    tagline: input.tagline,
+    description: input.description,
+    verse: input.verse,
+    type: input.type,
+    category: input.category,
+    collectionSlugs: input.collectionSlugs,
+    price: { amount: input.price, currency: "GBP" },
+    compareAtPrice:
+      typeof input.compareAtPrice === "number"
+        ? { amount: input.compareAtPrice, currency: "GBP" }
+        : undefined,
+    colours: input.colours,
+    sizes: input.sizes,
+    variants: buildVariants({
+      slug: cleanSlug,
+      colours: input.colours,
+      sizes: input.sizes,
+      price: input.price,
+      compareAtPrice: input.compareAtPrice ?? undefined,
+      stockByKey: input.stockByKey,
+    }),
+    images: input.images,
+    badges: input.badges,
+    rating: 0,
+    reviewCount: 0,
+    fabric: input.fabric,
+    care: input.care,
+    fit: input.fit,
+    weightGrams: input.weightGrams,
+    active: input.active,
+    customizable: input.customizable,
+    createdAt: now(),
+  };
+
+  await adminDb.collection("products").doc(id).set(stripUndefinedDeep(product));
+  revalidateTag("products", { expire: 0 });
+  return product;
 }
 
 export async function updateAdminProduct(
   id: string,
-  input: {
-    price?: number;
-    compareAtPrice?: number | null;
-    badges?: Product["badges"];
-    active?: boolean;
-    variantStock?: Record<string, number>;
-  },
-): Promise<Product | null> {
-  const product = getStore().products.find(
-    (p) => p.id === id || p.slug === id,
-  );
+  input: Partial<ProductFormInput> & { slug?: string; variantStock?: Record<string, number> },
+): Promise<Product | { error: string } | null> {
+  const product = await getAdminProduct(id);
   if (!product) return null;
+  const ref = adminDb.collection("products").doc(product.id);
 
-  if (typeof input.price === "number") {
-    product.price = { amount: input.price, currency: "GBP" };
-    product.variants.forEach((v) => {
-      v.price = { amount: input.price!, currency: "GBP" };
-    });
+  if (input.slug && input.slug.trim().toLowerCase() !== product.slug) {
+    const cleanSlug = input.slug.trim().toLowerCase();
+    const existing = await adminDb
+      .collection("products")
+      .where("slug", "==", cleanSlug)
+      .limit(1)
+      .get();
+    if (!existing.empty) return { error: "That slug is already in use" };
+    product.slug = cleanSlug;
   }
+
+  if (input.name !== undefined) product.name = input.name;
+  if (input.tagline !== undefined) product.tagline = input.tagline;
+  if (input.description !== undefined) product.description = input.description;
+  if (input.verse !== undefined) product.verse = input.verse;
+  if (input.type !== undefined) product.type = input.type;
+  if (input.category !== undefined) product.category = input.category;
+  if (input.collectionSlugs !== undefined) product.collectionSlugs = input.collectionSlugs;
+  if (input.images !== undefined) product.images = input.images;
+  if (input.badges !== undefined) product.badges = input.badges;
+  if (input.fabric !== undefined) product.fabric = input.fabric;
+  if (input.care !== undefined) product.care = input.care;
+  if (input.fit !== undefined) product.fit = input.fit;
+  if (typeof input.weightGrams === "number") product.weightGrams = input.weightGrams;
+  if (typeof input.active === "boolean") product.active = input.active;
+  if (typeof input.customizable === "boolean") product.customizable = input.customizable;
+  if (input.colours !== undefined) product.colours = input.colours;
+  if (input.sizes !== undefined) product.sizes = input.sizes;
+
+  const priceChanged = typeof input.price === "number";
+  if (priceChanged) product.price = { amount: input.price!, currency: "GBP" };
   if (input.compareAtPrice === null) {
     product.compareAtPrice = undefined;
-    product.variants.forEach((v) => (v.compareAtPrice = undefined));
   } else if (typeof input.compareAtPrice === "number") {
     product.compareAtPrice = { amount: input.compareAtPrice, currency: "GBP" };
-    product.variants.forEach(
-      (v) => (v.compareAtPrice = { amount: input.compareAtPrice!, currency: "GBP" }),
-    );
   }
-  if (input.badges) product.badges = input.badges;
-  if (typeof input.active === "boolean") product.active = input.active;
-  if (input.variantStock) {
-    product.variants.forEach((v) => {
-      if (v.id in input.variantStock!) {
-        v.stock = Math.max(0, Math.round(input.variantStock![v.id]));
-      }
+
+  // Colours/sizes/price changing means variants must be regenerated; a plain
+  // stock tweak (from the old narrow editor) just patches stock in place.
+  if (input.colours || input.sizes || priceChanged) {
+    const stockByKey =
+      input.stockByKey ??
+      Object.fromEntries(
+        product.variants.map((v) => [variantKey(v.colour, v.size), v.stock]),
+      );
+    const imagesByKey = Object.fromEntries(
+      product.variants
+        .filter((v) => v.images.length > 0)
+        .map((v) => [variantKey(v.colour, v.size), v.images]),
+    );
+    product.variants = buildVariants({
+      slug: product.slug,
+      colours: product.colours,
+      sizes: product.sizes,
+      price: product.price.amount,
+      compareAtPrice: product.compareAtPrice?.amount,
+      stockByKey,
+      imagesByKey,
+    });
+  } else if (input.compareAtPrice !== undefined) {
+    product.variants = product.variants.map((v) => {
+      const rest = { ...v };
+      delete rest.compareAtPrice;
+      return product.compareAtPrice ? { ...rest, compareAtPrice: product.compareAtPrice } : rest;
     });
   }
+  if (input.variantStock) {
+    product.variants = product.variants.map((v) =>
+      v.id in input.variantStock!
+        ? { ...v, stock: Math.max(0, Math.round(input.variantStock![v.id])) }
+        : v,
+    );
+  }
+
+  await ref.set(stripUndefinedDeep(product));
+  revalidateTag("products", { expire: 0 });
   return product;
 }
 
-export async function listLowStock(
-  threshold = 4,
-): Promise<LowStockRow[]> {
+/** Deletes a product doc and its uploaded photos — works the same whether the product came from the seed script or the admin "New product" form. */
+export async function deleteAdminProduct(id: string): Promise<boolean> {
+  const product = await getAdminProduct(id);
+  if (!product) return false;
+
+  await adminDb.collection("products").doc(product.id).delete();
+
+  try {
+    await adminStorage.bucket().deleteFiles({ prefix: `product-images/${product.id}/` });
+  } catch {
+    // Best-effort cleanup — a stuck Storage file shouldn't block the product
+    // being gone from the catalog.
+  }
+
+  revalidateTag("products", { expire: 0 });
+  return true;
+}
+
+export async function listLowStock(threshold = 4): Promise<LowStockRow[]> {
+  const products = await listAdminProducts();
   const rows: LowStockRow[] = [];
-  for (const p of getStore().products) {
+  for (const p of products) {
     for (const v of p.variants) {
       if (v.stock <= threshold) {
         rows.push({
@@ -254,8 +483,10 @@ export async function listLowStock(
 /* -------------------------------- customers -------------------------------- */
 
 export async function listCustomers(): Promise<Customer[]> {
+  const snap = await adminDb.collection("orders").get();
   const byEmail = new Map<string, Customer>();
-  for (const order of getStore().orders) {
+  for (const doc of snap.docs) {
+    const order = doc.data() as Order;
     const email = order.customerEmail ?? "unknown@example.com";
     const [firstName, ...rest] = (order.customerName ?? "Guest").split(" ");
     const existing =
@@ -289,14 +520,19 @@ export async function getCustomerByEmail(email: string): Promise<{
   const customers = await listCustomers();
   const customer = customers.find((c) => c.email === email);
   if (!customer) return null;
-  const orders = getStore().orders.filter((o) => o.customerEmail === email);
+  const snap = await adminDb
+    .collection("orders")
+    .where("customerEmail", "==", email)
+    .get();
+  const orders = snap.docs.map((d) => d.data() as Order);
   return { customer, orders };
 }
 
 /* -------------------------------- discounts -------------------------------- */
 
 export async function listDiscounts(): Promise<Discount[]> {
-  return [...getStore().discounts];
+  const snap = await adminDb.collection("discounts").get();
+  return snap.docs.map((d) => d.data() as Discount);
 }
 
 export async function createDiscount(input: {
@@ -306,7 +542,8 @@ export async function createDiscount(input: {
 }): Promise<Discount | { error: string }> {
   const code = input.code.trim().toUpperCase();
   if (!code) return { error: "Code is required" };
-  if (getStore().discounts.some((d) => d.code === code)) {
+  const ref = adminDb.collection("discounts").doc(code);
+  if ((await ref.get()).exists) {
     return { error: "That code already exists" };
   }
   const percentOff = Math.min(90, Math.max(1, Math.round(input.percentOff)));
@@ -318,7 +555,7 @@ export async function createDiscount(input: {
     timesUsed: 0,
     createdAt: now(),
   };
-  getStore().discounts.unshift(discount);
+  await ref.set(discount);
   return discount;
 }
 
@@ -326,62 +563,73 @@ export async function setDiscountActive(
   code: string,
   active: boolean,
 ): Promise<Discount | null> {
-  const discount = getStore().discounts.find((d) => d.code === code);
-  if (!discount) return null;
-  discount.active = active;
-  return discount;
+  const ref = adminDb.collection("discounts").doc(code.toUpperCase());
+  const snap = await ref.get();
+  if (!snap.exists) return null;
+  await ref.update({ active });
+  return { ...(snap.data() as Discount), active };
 }
 
 export async function deleteDiscount(code: string): Promise<boolean> {
-  const store = getStore();
-  const before = store.discounts.length;
-  store.discounts = store.discounts.filter((d) => d.code !== code);
-  return store.discounts.length < before;
+  const ref = adminDb.collection("discounts").doc(code.toUpperCase());
+  const snap = await ref.get();
+  if (!snap.exists) return false;
+  await ref.delete();
+  return true;
 }
 
 /* --------------------------------- reviews -------------------------------- */
 
 export async function listAdminReviews(): Promise<
-  (StoredReview & { productName: string })[]
+  (Review & { published: boolean; productName: string })[]
 > {
-  const { reviews, products } = getStore();
-  return reviews
-    .map((r) => ({
-      ...r,
-      productName:
-        products.find((p) => p.id === r.productId)?.name ?? "Unknown product",
-    }))
+  const [reviewsSnap, productsSnap] = await Promise.all([
+    adminDb.collection("reviews").get(),
+    adminDb.collection("products").get(),
+  ]);
+  const productNames = new Map(
+    productsSnap.docs.map((d) => [d.id, (d.data() as Product).name]),
+  );
+  return reviewsSnap.docs
+    .map((d) => {
+      const r = d.data() as Review & { published: boolean };
+      return { ...r, productName: productNames.get(r.productId) ?? "Unknown product" };
+    })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function setReviewPublished(
   id: string,
   published: boolean,
-): Promise<StoredReview | null> {
-  const review = getStore().reviews.find((r) => r.id === id);
-  if (!review) return null;
-  review.published = published;
-  return review;
+): Promise<(Review & { published: boolean }) | null> {
+  const ref = adminDb.collection("reviews").doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) return null;
+  await ref.update({ published });
+  return { ...(snap.data() as Review & { published: boolean }), published };
 }
 
 /* -------------------------------- settings ------------------------------- */
 
 export async function getSettings(): Promise<StoreSettings> {
-  return getStore().settings;
+  const snap = await adminDb.collection("settings").doc("store").get();
+  return snap.data() as StoreSettings;
 }
 
 export async function updateSettings(
   input: Partial<StoreSettings>,
 ): Promise<StoreSettings> {
-  const store = getStore();
-  store.settings = { ...store.settings, ...input };
-  return store.settings;
+  const ref = adminDb.collection("settings").doc("store");
+  await ref.set(input, { merge: true });
+  revalidateTag("settings", { expire: 0 });
+  return (await ref.get()).data() as StoreSettings;
 }
 
 /* -------------------------------- dashboard ------------------------------ */
 
 export async function getAdminSummary(): Promise<AdminSummary> {
-  const { orders } = getStore();
+  const snap = await adminDb.collection("orders").get();
+  const orders = snap.docs.map((d) => d.data() as Order);
   const paid = orders.filter((o) => o.paymentStatus !== "pending");
 
   const revenue = paid.reduce(
@@ -437,9 +685,13 @@ export async function getAdminSummary(): Promise<AdminSummary> {
 /* ---------------------------------- stripe -------------------------------- */
 
 export async function getPaymentsOverview(): Promise<PaymentsOverview> {
-  const { orders } = getStore();
   const secret = process.env.STRIPE_SECRET_KEY;
+  if (!secret) {
+    throw new Error("STRIPE_SECRET_KEY is not configured.");
+  }
 
+  const snap = await adminDb.collection("orders").get();
+  const orders = snap.docs.map((d) => d.data() as Order);
   const payments = orders.map((o) => ({
     id: o.stripePaymentIntentId ?? o.number,
     orderNumber: o.number,
@@ -455,30 +707,13 @@ export async function getPaymentsOverview(): Promise<PaymentsOverview> {
     createdAt: o.placedAt,
   }));
 
-  if (secret) {
-    try {
-      const Stripe = (await import("stripe")).default;
-      const stripe = new Stripe(secret);
-      const balance = await stripe.balance.retrieve();
-      return {
-        live: true,
-        balance: {
-          available: balance.available[0]?.amount ?? 0,
-          pending: balance.pending[0]?.amount ?? 0,
-        },
-        payments,
-      };
-    } catch {
-      /* fall through to mock */
-    }
-  }
-
-  const gross = payments.reduce((s, p) => s + p.amount - p.refunded, 0);
+  const stripe = new Stripe(secret);
+  const balance = await stripe.balance.retrieve();
   return {
-    live: false,
+    live: true,
     balance: {
-      available: Math.round(gross * 0.7),
-      pending: Math.round(gross * 0.3),
+      available: balance.available[0]?.amount ?? 0,
+      pending: balance.pending[0]?.amount ?? 0,
     },
     payments,
   };

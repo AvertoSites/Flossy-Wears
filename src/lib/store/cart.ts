@@ -9,9 +9,12 @@ type AddPayload = Omit<CartItem, "quantity">;
 type CartState = {
   items: CartItem[];
   hydrated: boolean;
+  /** Promo code applied in the cart — carried through to checkout, re-validated server-side there. */
+  discountCode: string | null;
   addItem: (item: AddPayload, quantity?: number) => void;
   removeItem: (id: string) => void;
   setQuantity: (id: string, quantity: number) => void;
+  setDiscountCode: (code: string | null) => void;
   clear: () => void;
   totalItems: () => number;
   subtotal: () => number;
@@ -23,6 +26,8 @@ export const useCart = create<CartState>()(
     (set, get) => ({
       items: [],
       hydrated: false,
+      discountCode: null,
+      setDiscountCode: (code) => set({ discountCode: code }),
       addItem: (item, quantity = 1) =>
         set((state) => {
           const existing = state.items.find((i) => i.id === item.id);
@@ -54,7 +59,7 @@ export const useCart = create<CartState>()(
                     : i,
                 ),
         })),
-      clear: () => set({ items: [] }),
+      clear: () => set({ items: [], discountCode: null }),
       totalItems: () => get().items.reduce((n, i) => n + i.quantity, 0),
       subtotal: () =>
         get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
@@ -68,7 +73,7 @@ export const useCart = create<CartState>()(
     }),
     {
       name: "flossywears-cart",
-      partialize: (state) => ({ items: state.items }),
+      partialize: (state) => ({ items: state.items, discountCode: state.discountCode }),
       onRehydrateStorage: () => (state) => {
         if (state) state.hydrated = true;
       },

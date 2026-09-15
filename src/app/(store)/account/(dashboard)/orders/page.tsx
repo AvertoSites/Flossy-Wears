@@ -1,12 +1,18 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
-import { getOrders } from "@/lib/api";
+import { useAuth } from "@/lib/store/auth";
+import { useCustomerOrders } from "@/lib/firebase/orders";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/common/empty-state";
 import { formatDate, formatPrice, pluralise } from "@/lib/format";
 
-export default async function OrdersPage() {
-  const orders = await getOrders();
+export default function OrdersPage() {
+  const uid = useAuth((s) => s.user?.uid);
+  const { data: orders = [], isPending } = useCustomerOrders(uid);
+
+  if (isPending) return null;
 
   if (orders.length === 0) {
     return (

@@ -3,15 +3,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LockIcon } from "lucide-react";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAdminAuth } from "@/lib/store/admin-auth";
+import { firebaseAuth } from "@/lib/firebase/client";
+import { fetchUserProfile } from "@/lib/firebase/user-doc";
+import { authErrorMessage } from "@/lib/firebase/errors";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const setAuthed = useAdminAuth((s) => s.setAuthed);
-  const [passcode, setPasscode] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -20,19 +23,20 @@ export default function AdminLoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/login", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ passcode }),
+      const cred = await signInWithEmailAndPassword(firebaseAuth, email, password);
+      const profile = await fetchUserProfile(cred.user.uid, {
+        email: cred.user.email ?? email,
+        firstName: "",
+        lastName: "",
       });
-      if (res.ok) {
-        setAuthed(true);
-        router.replace("/admin");
-      } else {
-        setError("Incorrect passcode.");
+      if (profile?.role !== "admin") {
+        await signOut(firebaseAuth);
+        setError("This account doesn't have admin access.");
+        return;
       }
-    } catch {
-      setError("Something went wrong. Try again.");
+      router.replace("/admin");
+    } catch (err) {
+      setError(authErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -50,26 +54,41 @@ export default function AdminLoginPage() {
             Flossy Wears Admin
           </span>
           <p className="text-sm text-muted-foreground">
-            Enter the team passcode to continue.
+            Sign in with your admin account to continue.
           </p>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="passcode">Passcode</Label>
-          <Input
-            id="passcode"
-            type="password"
-            autoFocus
-            value={passcode}
-            onChange={(e) => setPasscode(e.target.value)}
-          />
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              autoFocus
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
         </div>
         {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
         <Button type="submit" size="lg" className="mt-4 w-full" disabled={loading}>
-          {loading ? "Checking…" : "Sign in"}
+          {loading ? "Signing in…" : "Sign in"}
         </Button>
         <p className="mt-4 rounded-md border border-dashed border-black/10 bg-[#f4f1ea] px-3 py-2 text-xs text-muted-foreground">
-          Preview build passcode: <strong>flossy-admin</strong>. Not real
-          security — replace with Firebase Auth + an admin claim.
+          Admin accounts are created manually in the Firebase console — there&rsquo;s
+          no self-service sign-up here.
         </p>
       </form>
     </div>

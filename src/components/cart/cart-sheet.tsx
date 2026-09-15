@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingBagIcon } from "lucide-react";
+import { ShoppingBagIcon, TruckIcon } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CartLineItem } from "@/components/cart/cart-line-item";
 import { CartSummary } from "@/components/cart/cart-summary";
-import { FreeShippingBar } from "@/components/cart/free-shipping-bar";
 import { EmptyCart } from "@/components/cart/empty-cart";
 import { useCart } from "@/lib/store/cart";
 import { useUI } from "@/lib/store/ui";
@@ -50,7 +49,10 @@ export function CartSheet() {
         ) : (
           <>
             <div className="border-b border-border px-6 py-4">
-              <FreeShippingBar subtotal={subtotal} />
+              <p className="flex items-center gap-2 text-sm text-gold-dark">
+                <TruckIcon className="size-4" />
+                Free UK delivery
+              </p>
             </div>
             <ScrollArea className="flex-1">
               <div className="flex flex-col gap-5 px-6 py-5">

@@ -9,8 +9,6 @@ export const site = {
   phone: "+44 20 7946 0958",
   currency: "GBP" as const,
   locale: "en-GB",
-  /** Free UK delivery threshold, in pence. */
-  freeShippingThreshold: 7500,
   social: {
     instagram: "https://instagram.com/flossywearsuk",
     instagramHandle: "@flossywearsuk",

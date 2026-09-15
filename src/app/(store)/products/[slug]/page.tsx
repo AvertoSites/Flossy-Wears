@@ -44,17 +44,14 @@ export default async function ProductPage({
 
   const [reviews, summary, related] = await Promise.all([
     getReviews(product.id),
-    getRatingSummary(product.id, {
-      average: product.rating,
-      total: product.reviewCount,
-    }),
+    getRatingSummary(product.id),
     getRelatedProducts(slug, 8),
   ]);
 
   return (
     <>
       <ProductPurchase product={product} />
-      <ProductReviews reviews={reviews} summary={summary} />
+      <ProductReviews productId={product.id} reviews={reviews} summary={summary} />
       {related.length > 0 && (
         <div className="border-t border-border">
           <ProductCarousel
@@ -73,11 +70,13 @@ export default async function ProductPage({
             name: product.name,
             description: product.tagline,
             brand: { "@type": "Brand", name: site.name },
-            aggregateRating: {
-              "@type": "AggregateRating",
-              ratingValue: product.rating,
-              reviewCount: product.reviewCount,
-            },
+            ...(summary.total > 0 && {
+              aggregateRating: {
+                "@type": "AggregateRating",
+                ratingValue: summary.average,
+                reviewCount: summary.total,
+              },
+            }),
             offers: {
               "@type": "Offer",
               priceCurrency: "GBP",

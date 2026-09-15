@@ -1,35 +1,34 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { signOut as firebaseSignOut } from "firebase/auth";
+import { firebaseAuth } from "@/lib/firebase/client";
+import type { UserProfile } from "@/lib/firebase/user-doc";
 
 /**
- * Mock auth for the preview build. Firebase Auth replaces this later —
- * keep `user`, `signIn`, `signOut` and swap the implementation.
+ * Real auth state, sourced from Firebase Auth + the user's `users/{uid}`
+ * Firestore doc. `AuthListener` (mounted in providers.tsx) is what actually
+ * populates this via `onAuthStateChanged` — this store is just the reactive
+ * container so components can read it the same way as before.
  */
-type AuthUser = { firstName: string; lastName: string; email: string };
+type AuthStatus = "loading" | "signed-out" | "signed-in";
 
 type AuthState = {
-  user: AuthUser | null;
-  hydrated: boolean;
-  signIn: (user: AuthUser) => void;
+  user: UserProfile | null;
+  /** Firebase Auth's own emailVerified flag — required before AccountGate lets a customer in. */
+  emailVerified: boolean;
+  status: AuthStatus;
+  setUser: (user: UserProfile | null, emailVerified?: boolean) => void;
   signOut: () => void;
 };
 
-export const useAuth = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      hydrated: false,
-      signIn: (user) => set({ user }),
-      signOut: () => set({ user: null }),
-    }),
-    {
-      name: "flossywears-auth",
-      partialize: (s) => ({ user: s.user }),
-      onRehydrateStorage: () => (s) => {
-        if (s) s.hydrated = true;
-      },
-    },
-  ),
-);
+export const useAuth = create<AuthState>((set) => ({
+  user: null,
+  emailVerified: false,
+  status: "loading",
+  setUser: (user, emailVerified = false) =>
+    set({ user, emailVerified, status: user ? "signed-in" : "signed-out" }),
+  signOut: () => {
+    firebaseSignOut(firebaseAuth).catch(() => {});
+  },
+}));

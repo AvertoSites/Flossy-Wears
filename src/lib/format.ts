@@ -1,5 +1,14 @@
 import { site } from "@/lib/data/site";
 
+/** "Hope Crewneck!" -> "hope-crewneck" */
+export function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 const priceFormatter = new Intl.NumberFormat(site.locale, {
   style: "currency",
   currency: site.currency,

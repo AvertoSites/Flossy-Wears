@@ -1,4 +1,7 @@
-import { products } from "@/lib/data/products";
+import "server-only";
+
+import { unstable_cache } from "next/cache";
+import { adminDb } from "@/lib/firebase/admin";
 import { DEFAULT_PER_PAGE } from "@/lib/constants";
 import type {
   Paginated,
@@ -8,9 +11,27 @@ import type {
 } from "@/types";
 
 /**
- * Mock product access. Every function is async and returns plain data so the
- * implementation can be swapped for Firestore without touching callers.
+ * Firestore-backed product catalog. Every function keeps the same async
+ * signature the storefront already calls through `@/lib/api` — this is the
+ * storage-agnostic barrel the codebase documents; only this file's internals
+ * changed from the static fixtures it used to read.
+ *
+ * The catalog is small and changes rarely, so reads go through
+ * `unstable_cache` (5 min, tag "products") instead of hitting Firestore on
+ * every request — admin edits call `revalidateTag("products")` to bust it.
  */
+
+const getAllActiveProducts = unstable_cache(
+  async (): Promise<Product[]> => {
+    const snap = await adminDb
+      .collection("products")
+      .where("active", "==", true)
+      .get();
+    return snap.docs.map((d) => d.data() as Product);
+  },
+  ["products:active"],
+  { revalidate: 300, tags: ["products"] },
+);
 
 function sortProducts(list: Product[], sort: ProductSort = "featured"): Product[] {
   const copy = [...list];
@@ -62,7 +83,8 @@ export async function getProducts(
   const perPage = filters.perPage ?? DEFAULT_PER_PAGE;
   const page = Math.max(1, filters.page ?? 1);
 
-  const filtered = products.filter((p) => matches(p, filters));
+  const all = await getAllActiveProducts();
+  const filtered = all.filter((p) => matches(p, filters));
   const sorted = sortProducts(filtered, filters.sort);
 
   const total = sorted.length;
@@ -74,29 +96,40 @@ export async function getProducts(
 }
 
 export async function getAllProducts(): Promise<Product[]> {
-  return products;
+  return getAllActiveProducts();
+}
+
+/** Designs a shopper can pick as the base for their own custom verse. */
+export async function getCustomizableProducts(): Promise<Product[]> {
+  const all = await getAllActiveProducts();
+  return all.filter((p) => p.customizable);
 }
 
 export async function getProduct(slug: string): Promise<Product | null> {
-  return products.find((p) => p.slug === slug) ?? null;
+  const all = await getAllActiveProducts();
+  return all.find((p) => p.slug === slug) ?? null;
 }
 
 export async function getProductsByCollection(slug: string): Promise<Product[]> {
-  return products.filter((p) => p.collectionSlugs.includes(slug));
+  const all = await getAllActiveProducts();
+  return all.filter((p) => p.collectionSlugs.includes(slug));
 }
 
 export async function getFeaturedProducts(limit = 4): Promise<Product[]> {
-  return sortProducts(products, "featured").slice(0, limit);
+  const all = await getAllActiveProducts();
+  return sortProducts(all, "featured").slice(0, limit);
 }
 
 export async function getNewArrivals(limit = 8): Promise<Product[]> {
-  return sortProducts(products, "newest").slice(0, limit);
+  const all = await getAllActiveProducts();
+  return sortProducts(all, "newest").slice(0, limit);
 }
 
 export async function getRelatedProducts(slug: string, limit = 4): Promise<Product[]> {
-  const product = products.find((p) => p.slug === slug);
+  const all = await getAllActiveProducts();
+  const product = all.find((p) => p.slug === slug);
   if (!product) return [];
-  const scored = products
+  const scored = all
     .filter((p) => p.slug !== slug)
     .map((p) => ({
       p,
@@ -116,5 +149,6 @@ export async function searchProducts(query: string, limit = 8): Promise<Product[
 }
 
 export async function getProductSlugs(): Promise<string[]> {
-  return products.map((p) => p.slug);
+  const all = await getAllActiveProducts();
+  return all.map((p) => p.slug);
 }

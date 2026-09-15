@@ -50,6 +50,12 @@ export type Verse = {
   reference: string;
 };
 
+/** A shopper's own verse + reference, swapped in for a design's printed text. */
+export type CustomVerse = {
+  text: string;
+  reference: string;
+};
+
 export type Product = {
   id: string;
   slug: string;
@@ -75,10 +81,14 @@ export type Product = {
   fabric: string;
   care: string[];
   fit: string;
+  /** Shipping weight in grams — drives Royal Mail band pricing at checkout. Absent on products seeded before this field existed; callers fall back to DEFAULT_GARMENT_WEIGHT_GRAMS. */
+  weightGrams?: number;
   /** Flagged where real photography is still needed. */
   needsPhotography?: boolean;
   /** Admin toggle — hidden from storefront when false. */
   active?: boolean;
+  /** Can be used as a base design on the "Customise Your Own" page. */
+  customizable?: boolean;
   createdAt: string;
 };
 
@@ -120,6 +130,10 @@ export type CartItem = {
   image: string;
   quantity: number;
   maxStock: number;
+  /** Shipping weight in grams, denormalized from the product at add-to-cart time — used for a client-side delivery estimate only; the server re-derives it from the real product doc at checkout. */
+  weightGrams: number;
+  /** Present when the shopper swapped in their own verse for this design. */
+  customVerse?: CustomVerse;
 };
 
 export type Address = {
@@ -136,12 +150,19 @@ export type Address = {
   isDefault?: boolean;
 };
 
+export type ShippingBand = {
+  /** Parcels up to this weight (grams) are charged `price` — the first matching band, in ascending order, applies. */
+  maxWeightGrams: number;
+  /** Pence. 0 = free. */
+  price: number;
+};
+
 export type ShippingMethod = {
   id: string;
   label: string;
   description: string;
-  /** Pence. 0 = free. */
-  price: number;
+  /** Ascending by maxWeightGrams. A parcel heavier than the last band can't ship via this method. */
+  bands: ShippingBand[];
   estimate: string;
 };
 
@@ -159,6 +180,11 @@ export type OrderLine = {
   quantity: number;
   price: number;
   image: string;
+  /** Present when the shopper swapped in their own verse for this design. */
+  customVerse?: CustomVerse;
+  /** Set by createCheckoutSession — lets fulfillment decrement the exact variant's stock. */
+  productId?: string;
+  variantId?: string;
 };
 
 export type PaymentStatus =
@@ -241,7 +267,6 @@ export type Discount = {
 export type StoreSettings = {
   storeName: string;
   supportEmail: string;
-  freeShippingThreshold: number;
   shippingMethods: ShippingMethod[];
 };
 

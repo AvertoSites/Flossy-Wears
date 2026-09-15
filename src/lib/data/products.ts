@@ -11,6 +11,7 @@ type Seed = {
   slug: string;
   name: string;
   tagline: string;
+  description?: string;
   verse: { text: string; reference: string };
   type: ProductType;
   category: ProductCategory;
@@ -24,6 +25,8 @@ type Seed = {
   reviewCount: number;
   createdAt: string;
   needsPhotography?: boolean;
+  /** Base design for "Customise Your Own". Defaults to true for sweatshirts/hoodies. */
+  customizable?: boolean;
 };
 
 const FABRIC =
@@ -42,6 +45,8 @@ const seeds: Seed[] = [
     slug: "the-hope-crewneck",
     name: "The Hope Crewneck",
     tagline: "Christ in me, the hope of glory.",
+    description:
+      "A powerful expression of faith, identity and hope. “Christ in me, the hope of glory” is a reminder that hope is not found in circumstances, but in the presence of Christ within us. This design is for those who carry their faith confidently — a meaningful statement that remains stylish enough for everyday wear. Wear it as a reminder. Wear it as a declaration. Wear your faith with pride.",
     verse: { text: "Christ in me — the hope of glory", reference: "Colossians 1:27" },
     type: "sweatshirt",
     category: "unisex",
@@ -58,6 +63,8 @@ const seeds: Seed[] = [
     slug: "walk-by-faith-crewneck",
     name: "Walk by Faith Crewneck",
     tagline: "For we walk by faith, not by sight.",
+    description:
+      "A powerful reminder to trust God even when the way forward is unclear. This design represents the courage to keep moving, believing that God is guiding every step. Created for those who choose faith over fear, trust over uncertainty and God’s promises over what they can see. Wear it as a reminder. Wear it as a declaration. Wear your faith with pride.",
     verse: { text: "For we walk by faith and not by sight", reference: "2 Corinthians 5:7" },
     type: "sweatshirt",
     category: "unisex",
@@ -74,6 +81,8 @@ const seeds: Seed[] = [
     slug: "god-is-within-her-crewneck",
     name: "God Is Within Her Crewneck",
     tagline: "She shall not be moved.",
+    description:
+      "A bold declaration of strength, faith and unwavering confidence in God. This design reminds every woman that she is never standing alone — God is within her, giving her strength to remain grounded through every season. Created for the woman who knows who she is, trusts where she is going and refuses to be shaken by circumstances. Wear it as a reminder. Wear it as a declaration. Wear your faith with pride.",
     verse: { text: "God is within her, she shall not be moved", reference: "Psalm 46:5" },
     type: "sweatshirt",
     category: "women",
@@ -95,6 +104,8 @@ const seeds: Seed[] = [
     slug: "blessed-is-she-crewneck",
     name: "Blessed Is She Crewneck",
     tagline: "Blessed is she that believed.",
+    description:
+      "A celebration of faith, expectation and the strength of believing in what God has promised. This design is created especially as an uplifting statement for women who choose to walk confidently in faith and hope. Wear it as a reminder. Wear it as a declaration. Wear your faith with pride.",
     verse: { text: "Blessed is she that believes", reference: "Luke 1:45" },
     type: "sweatshirt",
     category: "women",
@@ -321,7 +332,9 @@ export const products: Product[] = seeds.map((seed, index) => ({
   slug: seed.slug,
   name: seed.name,
   tagline: seed.tagline,
-  description: `${seed.tagline} ${seed.verse.reference} printed on our heavyweight ${seed.type.replace("-", " ")}. A calm, editorial take on faithwear — soft brushed fleece, ribbed cuffs and a print made to age well. Wear your faith with pride.`,
+  description:
+    seed.description ??
+    `${seed.tagline} ${seed.verse.reference} printed on our heavyweight ${seed.type.replace("-", " ")}. A calm, editorial take on faithwear — soft brushed fleece, ribbed cuffs and a print made to age well. Wear your faith with pride.`,
   verse: seed.verse,
   type: seed.type,
   category: seed.category,
@@ -341,6 +354,7 @@ export const products: Product[] = seeds.map((seed, index) => ({
   care: CARE,
   fit: seed.type === "t-shirt" ? FIT_TEE : FIT_CREW,
   needsPhotography: seed.needsPhotography,
+  customizable: seed.customizable ?? seed.type !== "t-shirt",
   createdAt: seed.createdAt,
 }));
 

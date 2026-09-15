@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { FacebookIcon, InstagramIcon } from "@/components/common/social-icons";
 import { Logo } from "@/components/common/logo";
-import { NewsletterForm } from "@/components/layout/newsletter-form";
 import { footerNav } from "@/lib/data/navigation";
 import { site } from "@/lib/data/site";
 
@@ -14,12 +13,6 @@ export function SiteFooter() {
           <p className="max-w-xs text-sm text-muted-foreground">
             Premium, editorial faith apparel. Designed in the UK, made to be lived in.
           </p>
-          <div className="mt-2">
-            <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-gold-dark">
-              Join the list
-            </p>
-            <NewsletterForm className="max-w-sm" />
-          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">

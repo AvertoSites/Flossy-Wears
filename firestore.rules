@@ -1,0 +1,120 @@
+rules_version = '2';
+
+// Deploy this via Firebase Console -> Firestore Database -> Rules (paste and
+// Publish), or `firebase deploy --only firestore:rules` once the CLI is
+// logged in. This is the actual security boundary for Firestore data — there
+// is no server verifying every request, so these rules are what's really
+// enforcing access, not the app's own UI-level checks.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Admins are flagged manually: someone creates the Firebase Auth account
+    // in the console, then sets role: "admin" on that uid's users/{uid} doc.
+    // The app itself can never grant this — see the users/{uid} rules below.
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+
+      // A user can create their own profile doc, but only as role "customer".
+      allow create: if isOwner(uid) && request.resource.data.role == 'customer';
+
+      // A user can update their own profile, but never the role field —
+      // promotion to admin happens only via manual edit in the console.
+      allow update: if isOwner(uid) &&
+        request.resource.data.role == resource.data.role;
+
+      allow delete: if false;
+
+      // Delivery address book. Fully owner-managed; admins don't need access.
+      match /addresses/{addressId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // Product catalog — publicly readable, admin-managed. Written by the
+    // one-time seed script (Admin SDK, bypasses rules) and by admin edits
+    // (also Admin SDK, via the requireAdmin-guarded /api/admin/products
+    // routes) — this rule mainly documents intent / covers any direct client
+    // admin write path added later.
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /collections/{collectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Single doc: storefront-wide settings (shipping methods, free-shipping
+    // threshold, store name/support email). Publicly readable so the
+    // storefront and checkout function can price orders; admin-writable.
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Discount codes are never read directly by shoppers — only the
+    // createCheckoutSession Cloud Function looks them up, via Admin SDK,
+    // which bypasses these rules. Keeping this admin-only closes off code
+    // enumeration (a signed-in shopper listing /discounts to find valid
+    // codes) and prevents any client from toggling its own discount.
+    match /discounts/{code} {
+      allow read, write: if isAdmin();
+    }
+
+    // Reviews: anyone can read published reviews; a signed-in shopper can
+    // submit their own (always landing as unpublished/pending); only admin
+    // can flip visibility. No self-publish, no editing someone else's review.
+    match /reviews/{reviewId} {
+      allow read: if resource.data.published == true || isAdmin();
+      allow create: if isSignedIn() &&
+        request.resource.data.authorId == request.auth.uid &&
+        request.resource.data.published == false;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // Orders are never client-created — only the createCheckoutSession /
+    // stripeWebhook Cloud Functions create/finalize them (Admin SDK, bypasses
+    // rules). Customers can read their own; admins can read/update any
+    // (fulfillment status, tracking, notes). Refunds go through the
+    // refundOrder Cloud Function, not a direct client write.
+    match /orders/{orderId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && resource.data.customerId == request.auth.uid);
+      allow create: if false;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // Per-IP counters backing /api/track's rate limit — server-only.
+    match /rate_limits/{key} {
+      allow read, write: if false;
+    }
+
+    // Order-number counter — server-only (Cloud Functions, Admin SDK).
+    match /counters/{counterId} {
+      allow read, write: if false;
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
