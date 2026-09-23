@@ -4,6 +4,7 @@ import {
   getProductsByCollection,
 } from "@/lib/api";
 import { Hero } from "@/components/home/hero";
+import { DropAnnouncementModal } from "@/components/home/drop-announcement-modal";
 import { ValueProps } from "@/components/home/value-props";
 import { TheFourFeature } from "@/components/home/the-four-feature";
 import { ProductCarousel } from "@/components/product/product-carousel";
@@ -21,6 +22,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <DropAnnouncementModal />
       <Hero />
       <ValueProps />
       <TheFourFeature products={theFour} />
