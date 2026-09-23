@@ -64,7 +64,18 @@ left. Nothing works end-to-end until these are done, in order:
     resend.com) — and `RESEND_FROM_EMAIL` once you've verified a sending
     domain there — so the admin order page's "email the customer" checkbox
     actually sends. Without it, that action still records what would have
-    been sent but skips the real send.
+    been sent but skips the real send. `RESEND_FROM_EMAIL` here is a Next.js
+    env var (`.env.local` / your hosting provider's env settings) — it only
+    affects tracking-update emails.
+    Order-confirmation emails are sent separately, from the `fulfillOrder`
+    Cloud Function (`functions/src/email.ts`), which has its own
+    `RESEND_FROM_EMAIL` string param (defaults to `onboarding@resend.dev`).
+    `firebase functions:config` is deprecated, so set it by adding it to
+    `functions/.env` (or `functions/.env.<project-id>`) as
+    `RESEND_FROM_EMAIL="Flossy Wears <orders@yourdomain.com>"` and redeploy
+    functions. Until this is set to an address on your verified domain, order
+    confirmation emails will keep failing for every recipient except your own
+    Resend account email (Resend's 403 on `onboarding@resend.dev`).
 
 Test with a real (test-mode) checkout using card `4242 4242 4242 4242`, any
 future expiry, any CVC.

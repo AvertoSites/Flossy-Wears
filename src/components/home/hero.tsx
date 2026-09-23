@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 export function Hero() {
   return (
     <section className="border-b border-border bg-cream">
-      <div className="container-page grid items-center gap-10 py-12 lg:grid-cols-2 lg:py-16">
+      <div className="container-page grid items-center gap-10 py-12 lg:grid-cols-[1fr_1.2fr] lg:py-16">
         <div className="flex flex-col gap-6">
           <span className="text-xs font-medium uppercase tracking-[0.24em] text-gold-dark">
             The October 2026 drop
@@ -48,15 +48,16 @@ export function Hero() {
         </div>
 
         <div className="relative">
-          <div className="relative aspect-[5/6] overflow-hidden rounded-xl bg-paper shadow-sm">
+          <div className="relative aspect-[3/2] overflow-hidden rounded-xl bg-paper shadow-sm">
             <Image
-              src="/image/four-campaign-cover.jpeg"
-              alt="The Four campaign — four models wearing Flossy Wears scripture crewnecks"
+              src="/image/four-women.jpeg"
+              alt="Four friends wearing Flossy Wears scripture crewnecks — Believes, Hope, Faith and God Is Within Her"
               fill
               priority
-              sizes="(min-width: 1024px) 45vw, 90vw"
+              sizes="(min-width: 1024px) 55vw, 90vw"
               className="object-cover"
             />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/25 to-transparent" />
           </div>
           <div className="absolute -bottom-4 -left-4 hidden rounded-lg border border-border bg-paper px-4 py-3 shadow-sm sm:block">
             <p className="font-display text-sm">&ldquo;Faith you can wear.&rdquo;</p>

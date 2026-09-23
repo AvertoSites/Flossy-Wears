@@ -114,6 +114,16 @@ export async function updateFulfillment(
       patch.trackingNumber = input.trackingNumber || FieldValue.delete();
     if (input.trackingUrl !== undefined)
       patch.trackingUrl = input.trackingUrl || FieldValue.delete();
+    // `FieldValue.delete()` sentinels above are Firestore-write-only — spreading
+    // `patch` into the in-memory `updated` order below would leak them as
+    // truthy objects (e.g. `order.carrier` becoming `[object Object]` instead
+    // of `undefined`) wherever that value is read without going back to
+    // Firestore, notably the tracking-update email sent further down.
+    const cleanCarrier = input.carrier !== undefined ? input.carrier || undefined : order.carrier;
+    const cleanTrackingNumber =
+      input.trackingNumber !== undefined ? input.trackingNumber || undefined : order.trackingNumber;
+    const cleanTrackingUrl =
+      input.trackingUrl !== undefined ? input.trackingUrl || undefined : order.trackingUrl;
 
     if (input.status && input.status !== order.status) {
       patch.status = input.status;
@@ -123,10 +133,8 @@ export async function updateFulfillment(
       statusChanged = true;
     }
 
-    const trackingNumber = input.trackingNumber ?? order.trackingNumber;
-    const carrier = input.carrier ?? order.carrier;
-    if (trackingNumber || carrier) {
-      changes.push(`Tracking: ${carrier ?? "carrier"} ${trackingNumber ?? ""}`.trim());
+    if (cleanTrackingNumber || cleanCarrier) {
+      changes.push(`Tracking: ${cleanCarrier ?? "carrier"} ${cleanTrackingNumber ?? ""}`.trim());
     }
 
     const timeline = [
@@ -134,13 +142,20 @@ export async function updateFulfillment(
       orderEvent({
         kind: "fulfillment",
         label: changes[0] ?? "Fulfillment updated",
-        detail: trackingNumber ? `${carrier ?? ""} ${trackingNumber}`.trim() : undefined,
+        detail: cleanTrackingNumber ? `${cleanCarrier ?? ""} ${cleanTrackingNumber}`.trim() : undefined,
       }),
     ];
 
     patch.timeline = timeline;
     tx.update(ref, patch);
-    return { ...order, ...patch, timeline } as Order;
+    return {
+      ...order,
+      ...patch,
+      carrier: cleanCarrier,
+      trackingNumber: cleanTrackingNumber,
+      trackingUrl: cleanTrackingUrl,
+      timeline,
+    } as Order;
   });
 
   // Shipped/delivered/cancelled are the transitions a customer needs to hear
@@ -170,6 +185,7 @@ async function notifyCustomerOfUpdate(order: Order): Promise<void> {
     carrier: order.carrier,
     trackingNumber: order.trackingNumber,
     trackingUrl: order.trackingUrl,
+    lines: order.lines,
   });
 
   await ref.update({
