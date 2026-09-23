@@ -12,7 +12,7 @@ export const SIZES: SizeOption[] = [
 
 export const COLOURS: Record<string, ColourOption> = {
   brown: { value: "brown", label: "Chocolate", hex: "#4a342a" },
-  olive: { value: "olive", label: "Olive", hex: "#4b5320" },
+  olive: { value: "olive", label: "Olive", hex: "#4b5321" },
   purple: { value: "purple", label: "Royal Purple", hex: "#4b2e83" },
   heather: { value: "heather", label: "Heather Grey", hex: "#8a8d8f" },
   black: { value: "black", label: "Black", hex: "#1a1a1a" },
