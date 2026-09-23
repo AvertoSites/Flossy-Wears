@@ -50,7 +50,7 @@ export function Hero() {
         <div className="relative">
           <div className="relative aspect-[3/2] overflow-hidden rounded-xl bg-paper shadow-sm">
             <Image
-              src="/image/four-women.jpeg"
+              src="/image/campaign/four-women.jpeg"
               alt="Four friends wearing Flossy Wears scripture crewnecks — Believes, Hope, Faith and God Is Within Her"
               fill
               priority

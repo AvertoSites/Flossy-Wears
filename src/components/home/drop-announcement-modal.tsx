@@ -49,7 +49,7 @@ export function DropAnnouncementModal() {
 
         <div className="relative aspect-[3/2] w-full">
           <Image
-            src="/image/four-women.jpeg"
+            src="/image/campaign/four-women.jpeg"
             alt=""
             fill
             sizes="(min-width: 640px) 28rem, 100vw"

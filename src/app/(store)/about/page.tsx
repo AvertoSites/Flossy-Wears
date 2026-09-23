@@ -45,7 +45,7 @@ export default function AboutPage() {
         </div>
         <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-cream">
           <Image
-            src="/image/four-believes-styling-guide.jpeg"
+            src="/image/believes/four-believes-styling-guide.jpeg"
             alt="One sweatshirt, many ways to wear it — Flossy Wears styling guide"
             fill
             sizes="(min-width: 1024px) 33vw, 90vw"

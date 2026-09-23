@@ -50,7 +50,7 @@ export const primaryNav: NavItem[] = [
       title: "The Four",
       copy: "Four verses, one drop. Available now.",
       href: "/collections/the-four",
-      image: "/image/four-campaign-cover.jpeg",
+      image: "/image/campaign/four-campaign-cover.jpeg",
     },
   },
   {

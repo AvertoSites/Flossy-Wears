@@ -3,15 +3,15 @@ import { InstagramIcon } from "@/components/common/social-icons";
 import { site } from "@/lib/data/site";
 
 const SHOTS = [
-  "/image/four-hope-men-grey.jpeg",
-  "/image/four-faith-men-brown.jpeg",
-  "/image/four-god-within-her-women-purple-office.jpeg",
-  "/image/four-believes-women-black-desk.jpeg",
-  "/image/four-believes-women-brown.jpeg",
-  "/image/four-god-within-her-women-brown-campaign.jpeg",
-  "/image/four-believes-women-olive-campaign.jpeg",
-  "/image/four-campaign-poster-god-within-her.jpeg",
-  "/image/four-campaign-poster-god-within-her-alt.jpeg",
+  "/image/hope/four-hope-men-grey.jpeg",
+  "/image/faith/four-faith-men-brown.jpeg",
+  "/image/god-within-her/four-god-within-her-women-purple-office.jpeg",
+  "/image/believes/four-believes-women-black-desk.jpeg",
+  "/image/believes/four-believes-women-brown.jpeg",
+  "/image/god-within-her/four-god-within-her-women-brown-campaign.jpeg",
+  "/image/believes/four-believes-women-olive-campaign.jpeg",
+  "/image/god-within-her/four-campaign-poster-god-within-her.jpeg",
+  "/image/god-within-her/four-campaign-poster-god-within-her-alt.jpeg",
 ];
 
 export function InstagramStrip() {

@@ -8,7 +8,7 @@ export function BrandStory() {
       <div className="container-page grid items-center gap-10 py-16 lg:grid-cols-2 lg:py-24">
         <div className="relative order-last aspect-[4/3] overflow-hidden rounded-xl lg:order-first">
           <Image
-            src="/image/four-campaign-poster-believes.jpeg"
+            src="/image/believes/four-campaign-poster-believes.jpeg"
             alt="Flossy Wears campaign poster — more than clothing, a message"
             fill
             sizes="(min-width: 1024px) 45vw, 90vw"

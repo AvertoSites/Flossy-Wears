@@ -18,7 +18,7 @@ export default async function TheFourPage() {
     <>
       <section className="relative overflow-hidden bg-navy text-primary-foreground">
         <Image
-          src="/image/four-campaign-cover.jpeg"
+          src="/image/campaign/four-campaign-cover.jpeg"
           alt=""
           fill
           priority
