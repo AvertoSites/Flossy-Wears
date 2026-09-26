@@ -24,20 +24,18 @@ export default function ShippingReturnsPage() {
               <strong>Free delivery</strong> on all orders over £75.
             </li>
             <li>
-              <strong>Standard</strong> — £3.95, Royal Mail Tracked 48, 2–4 working
-              days.
+              <strong>Standard</strong> — £3.95, Royal Mail Tracked 48, 14 days.
             </li>
             <li>
-              <strong>Express</strong> — £5.95, Royal Mail Tracked 24, 1–2 working
-              days.
+              <strong>Express</strong> — £5.95, Royal Mail Tracked 24, 14 days.
             </li>
             <li>
-              <strong>Studio collection</strong> — free, ready within 24 hours from
+              <strong>Studio collection</strong> — free, ready within 14 days from
               Peckham Levels, London.
             </li>
           </ul>
           <p>
-            Orders placed before 1pm on a working day are dispatched the same day.
+            Orders are dispatched within 14 days.
             You&rsquo;ll get a tracking link by email as soon as your parcel is on its
             way.
           </p>

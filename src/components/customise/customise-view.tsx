@@ -301,8 +301,8 @@ export function CustomiseView({ products }: { products: Product[] }) {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Made to order for you — dispatched in 14 working days rather than
-            our usual 1–2, since it&rsquo;s printed fresh once you order.
+            Made to order for you — dispatched in 14 days, since it&rsquo;s
+            printed fresh once you order.
           </p>
         </div>
       )}

@@ -244,7 +244,7 @@ export function ProductPurchase({ product }: { product: Product }) {
               <TruckIcon className="size-4" />
               Free UK delivery
               {" · "}
-              Dispatched in 1–2 working days
+              Dispatched in 14 days
             </p>
           </div>
 
