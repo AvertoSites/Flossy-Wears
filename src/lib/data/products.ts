@@ -46,7 +46,7 @@ const seeds: Seed[] = [
     name: "The Hope Crewneck",
     tagline: "Christ in me, the hope of glory.",
     description:
-      "A powerful expression of faith, identity and hope. “Christ in me, the hope of glory” is a reminder that hope is not found in circumstances, but in the presence of Christ within us. This design is for those who carry their faith confidently — a meaningful statement that remains stylish enough for everyday wear. Wear it as a reminder. Wear it as a declaration. Wear your faith with pride.",
+      "A powerful expression of faith, identity and hope. “Christ in me, the hope of glory” is a reminder that hope is not found in circumstances, but in the presence of Christ within us. This design is for those who carry their faith confidently, this piece makes a meaningful statement while remaining stylish enough for everyday wear. Wear it as a reminder. Wear it as a declaration. Wear your faith with pride.",
     verse: { text: "Christ in me — the hope of glory", reference: "Colossians 1:27" },
     type: "sweatshirt",
     category: "unisex",
