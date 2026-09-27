@@ -1,67 +1,82 @@
-import Image from "next/image";
 import Link from "next/link";
-import { ArrowRightIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { HeroSlideshow, type HeroSlide } from "@/components/home/hero-slideshow";
+
+/** One slide per image group, so the hero previews the whole range. */
+const WOMEN: HeroSlide[] = [
+  {
+    src: "/image/african-print-hoodies/patchwork-africa-hoodie-women-yellow.jpeg",
+    alt: "Woman wearing the yellow African Heritage Print hoodie",
+  },
+  {
+    src: "/image/believes/four-believes-women-purple-solo.jpeg",
+    alt: "Woman wearing the purple Believes crewneck",
+  },
+  {
+    src: "/image/hoodie-dresses/hooded-maxi-dress-black-studio.jpeg",
+    alt: "Woman wearing the black Hooded Maxi Dress",
+  },
+  {
+    src: "/image/god-within-her/four-god-within-her-women-olive-solo.jpeg",
+    alt: "Woman wearing the olive God Is Within Her crewneck",
+  },
+  {
+    src: "/image/christmas-jumpers/reason-for-the-season-jumper-women-red.jpeg",
+    alt: "Woman wearing the red 'Jesus is the reason for the season' Christmas jumper",
+  },
+];
+
+const MEN: HeroSlide[] = [
+  {
+    src: "/image/african-print-hoodies/patchwork-africa-hoodie-men-yellow.jpeg",
+    alt: "Man wearing the yellow African Heritage Print hoodie",
+  },
+  {
+    src: "/image/faith/four-faith-men-brown.jpeg",
+    alt: "Man wearing the brown Faith crewneck",
+  },
+  {
+    src: "/image/hope/four-hope-men-maroon-solo.jpeg",
+    alt: "Man wearing the maroon Hope crewneck",
+  },
+  {
+    src: "/image/christmas-jumpers/reason-for-the-season-jumper-men-red.jpeg",
+    alt: "Man wearing the red 'Jesus is the reason for the season' Christmas jumper",
+  },
+];
+
+const CTAS = [
+  { label: "Shop women", href: "/shop?category=women" },
+  { label: "Shop men", href: "/shop?category=men" },
+];
 
 export function Hero() {
   return (
-    <section className="border-b border-border bg-cream">
-      <div className="container-page grid items-center gap-10 py-12 lg:grid-cols-[1fr_1.2fr] lg:py-16">
-        <div className="flex flex-col gap-6">
-          <span className="text-xs font-medium uppercase tracking-[0.24em] text-gold-dark">
-            The October 2026 drop
-          </span>
-          <h1 className="text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">
-            Wear your faith
-            <br />
-            with pride.
-          </h1>
-          <p className="max-w-md text-muted-foreground">
-            Heavyweight crewnecks and tees carrying Scripture worth wearing.
-            Editorial, understated, made in the UK — faith you can live in.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Button asChild size="lg">
-              <Link href="/collections/the-four">
-                Shop The Four
-                <ArrowRightIcon className="size-4" />
-              </Link>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link href="/shop">Shop all</Link>
-            </Button>
-          </div>
-          <dl className="mt-2 flex gap-8 text-sm">
-            <div>
-              <dt className="text-muted-foreground">Rated</dt>
-              <dd className="font-display text-lg">4.9 / 5</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Delivery</dt>
-              <dd className="font-display text-lg">Free over £75</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Returns</dt>
-              <dd className="font-display text-lg">30 days</dd>
-            </div>
-          </dl>
-        </div>
+    <section className="relative isolate overflow-hidden bg-navy">
+      <div className="grid h-[calc(100svh-6.25rem)] min-h-[520px] grid-cols-2">
+        <HeroSlideshow slides={WOMEN} />
+        <HeroSlideshow slides={MEN} />
+      </div>
 
-        <div className="relative">
-          <div className="relative aspect-[3/2] overflow-hidden rounded-xl bg-paper shadow-sm">
-            <Image
-              src="/image/campaign/four-women.jpeg"
-              alt="Four friends wearing Flossy Wears scripture crewnecks — Believes, Hope, Faith and God Is Within Her"
-              fill
-              priority
-              sizes="(min-width: 1024px) 55vw, 90vw"
-              className="object-cover"
-            />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/25 to-transparent" />
-          </div>
-          <div className="absolute -bottom-4 -left-4 hidden rounded-lg border border-border bg-paper px-4 py-3 shadow-sm sm:block">
-            <p className="font-display text-sm">&ldquo;Faith you can wear.&rdquo;</p>
-          </div>
+      <span className="pointer-events-none absolute inset-0 bg-black/25" />
+
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 px-4 text-center">
+        <h1 className="font-display text-5xl leading-none text-white sm:text-7xl lg:text-8xl">
+          Wear your faith
+        </h1>
+        <p className="max-w-md text-base text-white/90 sm:text-lg">
+          Scripture, heritage and purpose — thoughtfully made pieces for
+          everyday wear.
+        </p>
+        <div className="mt-2 flex flex-wrap justify-center gap-3 sm:gap-5">
+          {CTAS.map((cta) => (
+            <Link
+              key={cta.href}
+              href={cta.href}
+              className="min-w-40 bg-paper px-8 py-3.5 text-center text-sm uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-white sm:min-w-56"
+            >
+              {cta.label}
+            </Link>
+          ))}
         </div>
       </div>
     </section>

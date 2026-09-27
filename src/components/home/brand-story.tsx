@@ -28,6 +28,12 @@ export function BrandStory() {
             considered, quietly bold. Every piece pairs a verse with a design you&rsquo;d
             wear even without the words.
           </p>
+          <p className="max-w-md text-primary-foreground/80">
+            Today that same purpose runs through every collection — from
+            African print hoodies that celebrate where we come from, to
+            flowing hooded maxi dresses and Christmas jumpers that keep Christ
+            at the centre of the season.
+          </p>
           <Link
             href="/about"
             className="group inline-flex items-center gap-2 text-sm font-medium text-primary-foreground underline-offset-4 hover:underline"

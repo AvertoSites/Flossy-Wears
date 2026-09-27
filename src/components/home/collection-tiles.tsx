@@ -12,7 +12,7 @@ export function CollectionTiles({ collections }: { collections: Collection[] }) 
         className="mb-8"
       />
       <div className="grid gap-4 sm:grid-cols-3">
-        {collections.slice(0, 3).map((collection) => (
+        {collections.map((collection) => (
           <Link
             key={collection.id}
             href={`/collections/${collection.slug}`}

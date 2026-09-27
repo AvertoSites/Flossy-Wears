@@ -63,13 +63,17 @@ export const primaryNav: NavItem[] = [
           { label: "The Four", href: "/collections/the-four" },
           { label: "For Her", href: "/collections/for-her" },
           { label: "For Him", href: "/collections/for-him" },
+          { label: "African Heritage Prints", href: "/collections/african-prints" },
+          { label: "Hooded Maxi Dresses", href: "/collections/hoodie-dresses" },
+          { label: "The Christmas Edit", href: "/collections/christmas-jumpers" },
           { label: "New Arrivals", href: "/collections/new-arrivals" },
           { label: "Sale", href: "/collections/sale" },
         ],
       },
     ],
   },
-  { label: "The Four", href: "/the-four" },
+  // Hidden for now — restore to bring back The Four in the navbar.
+  // { label: "The Four", href: "/the-four" },
   { label: "Customise Your Own", href: "/customise" },
   { label: "Our Story", href: "/about" },
 ];

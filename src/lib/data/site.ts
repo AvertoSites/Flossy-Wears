@@ -3,7 +3,7 @@ export const site = {
   shortName: "FW",
   tagline: "Faith you can wear.",
   description:
-    "Flossy Wears makes premium, editorial faith apparel — heavyweight sweatshirts and tees carrying Scripture worth wearing. Designed in the UK.",
+    "Flossy Wears makes premium, editorial faith apparel — Scripture sweatshirts and tees, African heritage print hoodies, hooded maxi dresses and Christmas jumpers. Designed in the UK.",
   url: "https://flossywears.co.uk",
   email: "flossywears@gmail.com",
   phone: "+44 20 7946 0958",

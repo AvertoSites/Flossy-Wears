@@ -105,6 +105,13 @@ async function seedCounters() {
 }
 
 async function main() {
+  // `npm run seed:collections` — push only the collection fixtures, leaving
+  // admin-edited products, settings and discounts untouched.
+  if (process.argv.includes("--collections-only")) {
+    await seedCollections();
+    console.log("Done.");
+    return;
+  }
   await seedProducts();
   await seedCollections();
   await seedSettings();

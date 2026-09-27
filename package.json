@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx --env-file=.env scripts/seed-firestore.ts"
+    "seed": "tsx --env-file=.env scripts/seed-firestore.ts",
+    "seed:collections": "tsx --env-file=.env scripts/seed-firestore.ts --collections-only"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

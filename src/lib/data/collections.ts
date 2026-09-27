@@ -32,6 +32,36 @@ export const collections: Collection[] = [
     featured: true,
   },
   {
+    id: "col_african_prints",
+    slug: "african-prints",
+    name: "African Heritage Prints",
+    eyebrow: "African print hoodies",
+    description:
+      "The continent, worn close to the heart. Heavyweight hoodies finished with an Africa appliqué in vibrant wax-print fabric — a celebration of heritage, stitched with pride.",
+    heroImage: "/image/african-print-hoodies/patchwork-africa-hoodie-women-yellow.jpeg",
+    featured: true,
+  },
+  {
+    id: "col_hoodie_dresses",
+    slug: "hoodie-dresses",
+    name: "Hooded Maxi Dresses",
+    eyebrow: "Modest, relaxed, refined",
+    description:
+      "Floor-length elegance with the comfort of your favourite hoodie. Soft brushed fleece, a flowing A-line silhouette, side pockets and a contrast drawstring hood — effortless from the office to the weekend.",
+    heroImage: "/image/hoodie-dresses/hooded-maxi-dress-black-studio.jpeg",
+    featured: true,
+  },
+  {
+    id: "col_christmas_jumpers",
+    slug: "christmas-jumpers",
+    name: "The Christmas Edit",
+    eyebrow: "Jesus is the reason for the season",
+    description:
+      "Festive jumpers that keep Christ at the centre of Christmas. Cosy crewnecks in seasonal red and winter white, made for carol services, family gatherings and thoughtful gifting.",
+    heroImage: "/image/christmas-jumpers/reason-for-the-season-jumper-women-red.jpeg",
+    featured: true,
+  },
+  {
     id: "col_new_arrivals",
     slug: "new-arrivals",
     name: "New Arrivals",
