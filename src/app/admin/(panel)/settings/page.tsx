@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { adminApi } from "@/lib/admin/client";
 import { AdminHeader, Card } from "@/components/admin/ui";
+import { AccountCard } from "@/components/admin/account-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -210,6 +211,10 @@ function SettingsForm({ settings }: { settings: StoreSettings }) {
             ))}
           </div>
         </Card>
+      </div>
+
+      <div className="mt-6">
+        <AccountCard />
       </div>
 
       <Card className="mt-6" title="Payments">

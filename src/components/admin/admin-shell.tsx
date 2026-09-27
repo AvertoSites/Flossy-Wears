@@ -90,13 +90,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         >
           <MobileNav pathname={pathname} />
           <span className="font-display text-sm lg:hidden">Flossy Admin</span>
-          <Link
-            href="/"
-            target="_blank"
-            className="ml-auto text-sm text-[#1e3a5f] underline-offset-4 hover:underline"
-          >
-            View store ↗
-          </Link>
+          <div className="ml-auto flex items-center gap-5">
+            <Link
+              href="/"
+              target="_blank"
+              className="hidden text-sm text-[#1e3a5f] underline-offset-4 hover:underline sm:inline"
+            >
+              View store ↗
+            </Link>
+            <SignedInAdmin />
+          </div>
         </header>
         <main className="flex-1 p-5 lg:p-8">
           <ViewTransition key={pathname} enter="route-enter" exit="route-exit" default="none">
@@ -105,6 +108,31 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </div>
+  );
+}
+
+function SignedInAdmin() {
+  const user = useAuth((s) => s.user);
+  if (!user) return null;
+  const fullName = `${user.firstName} ${user.lastName}`.trim();
+  const initials =
+    `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase() ||
+    user.email.charAt(0).toUpperCase();
+
+  return (
+    <Link
+      href="/admin/settings#account"
+      title="Your account"
+      className="flex items-center gap-3 rounded-md py-1 pr-1 pl-2 transition-colors hover:bg-black/5"
+    >
+      <div className="hidden text-right leading-tight sm:block">
+        <p className="text-sm font-medium">{fullName || "Admin"}</p>
+        <p className="text-xs text-muted-foreground">{user.email}</p>
+      </div>
+      <span className="flex size-9 items-center justify-center rounded-full bg-[#1e3a5f] text-sm font-medium text-white">
+        {initials}
+      </span>
+    </Link>
   );
 }
 
