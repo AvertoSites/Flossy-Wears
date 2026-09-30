@@ -46,7 +46,7 @@ export function CartPageView() {
         <div className="flex flex-col gap-6">
           <p className="flex items-center gap-2 text-sm text-gold-dark">
             <TruckIcon className="size-4" />
-            Free UK delivery
+            Royal Mail delivery from £3 · free studio collection
           </p>
           <div className="flex flex-col divide-y divide-border border-y border-border">
             {items.map((item) => (

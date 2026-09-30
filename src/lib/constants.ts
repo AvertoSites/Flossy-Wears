@@ -36,37 +36,35 @@ export const DEFAULT_PER_PAGE = 9;
 export const DEFAULT_GARMENT_WEIGHT_GRAMS = 300;
 
 /**
- * Royal Mail doesn't publish a live rate-quote API (confirmed against their
- * Click & Drop OpenAPI spec — it expects *you* to supply the shipping cost
- * when creating a shipment, it doesn't calculate one), so real fees have to
- * come from a weight-band table you maintain yourself, matching your actual
- * account rates. That table isn't sorted out yet — every band below is
- * priced at 0 (shipping is free on every order, current policy) so the
- * weight-based plumbing (Product.weightGrams, ShippingMethod.bands,
- * `priceForWeight` in functions/src/checkout.ts) is in place and ready:
- * fill in real prices here (and in Admin → Settings) once rates are decided,
- * with nothing else to rewire.
+ * Delivery options — all via Royal Mail, UK only. There's no free-delivery
+ * threshold: every delivered order pays postage whatever the basket total;
+ * only collecting from the studio is free. Prices are in pence and flat for
+ * now (one band up to 20kg, Royal Mail's parcel limit). Split a band here —
+ * or in Admin → Settings — to price by weight later.
+ *
+ * These seed `settings/store` (`npm run seed:settings`); checkout and the
+ * Cloud Function read that doc, not this constant.
  */
 export const SHIPPING_METHODS: ShippingMethod[] = [
   {
     id: "standard",
     label: "Standard delivery",
     description: "Royal Mail Tracked 48",
-    estimate: "14 days",
-    bands: [{ maxWeightGrams: 20000, price: 0 }],
+    estimate: "Delivered in 2–5 working days",
+    bands: [{ maxWeightGrams: 20000, price: 300 }],
   },
   {
     id: "express",
     label: "Express delivery",
     description: "Royal Mail Tracked 24",
-    estimate: "14 days",
-    bands: [{ maxWeightGrams: 20000, price: 0 }],
+    estimate: "Delivered in 1–3 working days",
+    bands: [{ maxWeightGrams: 20000, price: 900 }],
   },
   {
     id: "collection",
-    label: "Studio collection",
+    label: "Collect from store",
     description: "Collect from Peckham Levels, London",
-    estimate: "Ready in 14 days",
+    estimate: "",
     bands: [{ maxWeightGrams: 1_000_000, price: 0 }],
   },
 ];

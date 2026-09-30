@@ -3,7 +3,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions/v2";
 import { db } from "./admin";
 import { getStripe, stripeSecretKey } from "./stripe";
-import { resendApiKey, sendOrderConfirmationEmail } from "./email";
+import { resendApiKey, sendNewOrderAdminEmail, sendOrderConfirmationEmail } from "./email";
 import type { Address, OrderLine, Product } from "./types";
 
 /**
@@ -95,6 +95,17 @@ export async function fulfillCheckoutSession(sessionId: string): Promise<void> {
     subtotal: order.subtotal,
     shipping: order.shipping,
     discount: order.discount,
+    total: order.total,
+    shippingMethod: order.shippingMethod,
+    shippingAddress: order.shippingAddress as Address,
+  });
+
+  await sendNewOrderAdminEmail({
+    id: sessionId,
+    number: orderNumber,
+    customerEmail: order.customerEmail,
+    customerName: order.customerName,
+    lines,
     total: order.total,
     shippingMethod: order.shippingMethod,
     shippingAddress: order.shippingAddress as Address,

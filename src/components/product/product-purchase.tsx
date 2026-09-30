@@ -242,7 +242,7 @@ export function ProductPurchase({ product }: { product: Product }) {
             </div>
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <TruckIcon className="size-4" />
-              Free UK delivery
+              UK delivery from £3
               {" · "}
               Dispatched in 14 days
             </p>

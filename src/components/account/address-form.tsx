@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/common/text-field";
 import { useAuth } from "@/lib/store/auth";
 import { addAddress, updateAddress } from "@/lib/firebase/addresses";
-import { addressSchema, type AddressValues } from "@/lib/validations/address";
+import { addressSchema, type AddressInput, type AddressValues } from "@/lib/validations/address";
+import { UK_COUNTRY, lookupUkPostcode } from "@/lib/validations/uk-address";
 import type { Address } from "@/types";
 
 export function AddressForm({
@@ -24,16 +25,26 @@ export function AddressForm({
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors },
-  } = useForm<AddressValues>({
+  } = useForm<AddressInput, unknown, AddressValues>({
     resolver: zodResolver(addressSchema),
-    defaultValues: address ?? { country: "United Kingdom" },
+    // UK-only delivery — the country is fixed, whatever an older saved address held.
+    defaultValues: { ...address, country: UK_COUNTRY },
   });
 
   async function onSubmit(values: AddressValues) {
     if (!uid) return;
     setSubmitting(true);
     try {
+      // The schema already checked the format; this confirms the postcode
+      // really exists. A lookup outage ("unavailable") doesn't block saving.
+      if ((await lookupUkPostcode(values.postcode)) === "not-found") {
+        setError("postcode", {
+          message: "We couldn't find that postcode — please check it and try again",
+        });
+        return;
+      }
       if (address) {
         await updateAddress(uid, address.id, values);
         onSaved(address.id);
@@ -60,7 +71,7 @@ export function AddressForm({
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="Postcode" autoComplete="postal-code" error={errors.postcode} {...register("postcode")} />
-        <TextField label="Country" autoComplete="country-name" error={errors.country} {...register("country")} />
+        <TextField label="Country" autoComplete="country-name" readOnly className="bg-muted/50" error={errors.country} {...register("country")} />
       </div>
       <TextField label="Phone" type="tel" autoComplete="tel" error={errors.phone} {...register("phone")} />
       <div className="flex gap-3">

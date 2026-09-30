@@ -112,6 +112,18 @@ async function main() {
     console.log("Done.");
     return;
   }
+  // `npm run seed:settings` — replace only settings/store.shippingMethods,
+  // leaving the admin-edited store name/email, products, collections and
+  // discounts untouched.
+  if (process.argv.includes("--settings-only")) {
+    await db
+      .collection("settings")
+      .doc("store")
+      .set({ shippingMethods: SHIPPING_METHODS }, { merge: true });
+    console.log("Updated settings/store shipping methods.");
+    console.log("Done.");
+    return;
+  }
   await seedProducts();
   await seedCollections();
   await seedSettings();

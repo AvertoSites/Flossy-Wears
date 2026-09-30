@@ -41,8 +41,9 @@ export function ProductInfo({ product }: { product: Product }) {
         <AccordionTrigger>Delivery &amp; returns</AccordionTrigger>
         <AccordionContent className="flex flex-col gap-2 text-sm text-muted-foreground">
           <p>
-            Free UK delivery on orders over £75. Standard delivery £3.95 (Royal
-            Mail Tracked 48), express £5.95 (Tracked 24).
+            UK delivery via Royal Mail: standard £3.00 (Tracked 48, 2–5 working
+            days) or express £9.00 (Tracked 24, 1–3 working days). Collect from
+            our studio for free.
           </p>
           <p>
             {RETURN_WINDOW_DAYS}-day returns on unworn items with tags attached.

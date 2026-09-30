@@ -7,6 +7,10 @@ export const resendApiKey = defineSecret("RESEND_API_KEY");
 export const resendFromEmail = defineString("RESEND_FROM_EMAIL", {
   default: "Flossy Wears <onboarding@resend.dev>",
 });
+/** Who gets the "new order" alert — comma-separate several addresses. */
+export const adminNotifyEmail = defineString("ADMIN_NOTIFY_EMAIL", {
+  default: "flossywears@gmail.com",
+});
 
 // Small, stable set of storefront details the confirmation email needs.
 // Duplicated from src/lib/data/site.ts rather than imported — this codebase
@@ -114,7 +118,7 @@ function emailShell(opts: { previewText: string; bodyHtml: string }): string {
 }
 
 /** Best-effort send via Resend's REST API — a failed/unconfigured send must never block order fulfillment. */
-async function sendEmail(input: { to: string; subject: string; html: string; text: string }) {
+async function sendEmail(input: { to: string | string[]; subject: string; html: string; text: string }) {
   const apiKey = resendApiKey.value();
   if (!apiKey) {
     logger.warn("sendEmail: RESEND_API_KEY not configured, skipping", { to: input.to, subject: input.subject });
@@ -215,6 +219,89 @@ export async function sendOrderConfirmationEmail(order: {
       .join("\n"),
     html: emailShell({
       previewText: `Order ${order.number} is confirmed — ${formatPrice(order.total)} paid.`,
+      bodyHtml,
+    }),
+  });
+}
+
+/**
+ * Alerts the store owner that a paid order is waiting, with a link straight
+ * to it in the admin dashboard. Sent alongside the customer's confirmation.
+ */
+export async function sendNewOrderAdminEmail(order: {
+  id: string;
+  number: string;
+  customerEmail: string;
+  customerName: string;
+  lines: OrderLine[];
+  total: number;
+  shippingMethod: string;
+  shippingAddress: {
+    firstName?: string;
+    lastName?: string;
+    line1: string;
+    line2?: string;
+    city: string;
+    county?: string;
+    postcode: string;
+    phone?: string;
+  };
+}) {
+  const recipients = adminNotifyEmail
+    .value()
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+  if (!recipients.length) return;
+
+  const a = order.shippingAddress;
+  const recipientName = [a.firstName, a.lastName].filter(Boolean).join(" ");
+  const addressLines = [recipientName, a.line1, a.line2, a.city, a.county, a.postcode].filter(
+    (l): l is string => !!l,
+  );
+  const itemCount = order.lines.reduce((n, l) => n + l.quantity, 0);
+  const adminUrl = `${SITE.url}/admin/orders/${encodeURIComponent(order.id)}`;
+  const hasCustom = order.lines.some((l) => l.customVerse);
+
+  const bodyHtml = `
+    <h1 style="margin:0 0 6px;font-size:21px;color:${COLORS.ink}">New order ${escapeHtml(order.number)}</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:${COLORS.muted}">
+      ${escapeHtml(order.customerName)} (${escapeHtml(order.customerEmail)}) paid <strong style="color:${COLORS.ink}">${formatPrice(order.total)}</strong>
+      for ${itemCount} item${itemCount === 1 ? "" : "s"} — ${escapeHtml(order.shippingMethod)}.
+      ${hasCustom ? `<br /><strong style="color:${COLORS.ink}">Includes a custom print.</strong>` : ""}
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${productRowsHtml(order.lines)}</table>
+    <div style="margin-top:20px;padding:14px 16px;background:${COLORS.cream};border-radius:8px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:${COLORS.muted};margin-bottom:4px">Ship to</div>
+      <div style="font-size:13.5px;color:${COLORS.ink}">${addressLines.map(escapeHtml).join("<br />")}</div>
+      ${a.phone ? `<div style="font-size:13px;color:${COLORS.muted};margin-top:4px">${escapeHtml(a.phone)}</div>` : ""}
+    </div>
+    ${button("View order in dashboard", adminUrl)}
+  `;
+
+  await sendEmail({
+    to: recipients,
+    subject: `New order ${order.number} — ${formatPrice(order.total)} from ${order.customerName}`,
+    text: [
+      `New order ${order.number}`,
+      `${order.customerName} (${order.customerEmail}) paid ${formatPrice(order.total)} — ${order.shippingMethod}.`,
+      "",
+      "Items:",
+      ...order.lines.map((l) => {
+        const base = `${l.quantity} × ${l.name}`;
+        return l.customVerse
+          ? `${base}\n  Custom print: "${l.customVerse.text}" — ${l.customVerse.reference}${l.customVerse.note ? ` — Note: ${l.customVerse.note}` : ""}`
+          : base;
+      }),
+      "",
+      "Ship to:",
+      ...addressLines,
+      a.phone ?? "",
+      "",
+      `View in the admin dashboard: ${adminUrl}`,
+    ].join("\n"),
+    html: emailShell({
+      previewText: `${order.customerName} paid ${formatPrice(order.total)} — order ${order.number}.`,
       bodyHtml,
     }),
   });

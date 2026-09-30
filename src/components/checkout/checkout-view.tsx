@@ -238,20 +238,21 @@ export function CheckoutView() {
                       <Label
                         key={m.id}
                         htmlFor={m.id}
-                        className="flex cursor-pointer items-center justify-between rounded-lg border border-border p-4 has-[:checked]:border-navy"
+                        className="flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-border p-4 has-[:checked]:border-navy"
                       >
-                        <span className="flex items-center gap-3">
-                          <RadioGroupItem id={m.id} value={m.id} />
-                          <span>
-                            <span className="block text-sm font-medium">{m.label}</span>
-                            <span className="block text-xs text-muted-foreground">
-                              {m.description} · {m.estimate}
+                        <span className="flex flex-col gap-1">
+                          <span className="text-sm">
+                            {m.label}:{" "}
+                            <span className="font-semibold">
+                              {price === 0 ? "Free" : formatPrice(price)}
                             </span>
                           </span>
+                          {m.estimate && (
+                            <span className="text-xs text-muted-foreground">{m.estimate}</span>
+                          )}
+                          <span className="text-xs text-muted-foreground">{m.description}</span>
                         </span>
-                        <span className="text-sm">
-                          {price === 0 ? "Free" : formatPrice(price)}
-                        </span>
+                        <RadioGroupItem id={m.id} value={m.id} />
                       </Label>
                     );
                   })}

@@ -51,7 +51,7 @@ export function CartSheet() {
             <div className="border-b border-border px-6 py-4">
               <p className="flex items-center gap-2 text-sm text-gold-dark">
                 <TruckIcon className="size-4" />
-                Free UK delivery
+                Royal Mail delivery from £3 · free studio collection
               </p>
             </div>
             <ScrollArea className="flex-1">

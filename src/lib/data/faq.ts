@@ -9,11 +9,11 @@ export const faqGroups: FaqGroup[] = [
     items: [
       {
         q: "How long does delivery take?",
-        a: "UK standard delivery (Royal Mail Tracked 48) is 14 days. Express (Tracked 24) is 14 days. Orders are dispatched within 14 days.",
+        a: "UK standard delivery (Royal Mail Tracked 48) takes 2–5 working days. Express (Tracked 24) takes 1–3 working days. Orders are dispatched within 14 days.",
       },
       {
         q: "Is delivery free?",
-        a: "UK delivery is free on all orders over £75. Below that, standard delivery is £3.95 and express is £5.95.",
+        a: "Delivery is charged on every order, whatever its total: standard is £3.00 and express is £9.00. Collecting from our studio at Peckham Levels is free.",
       },
       {
         q: "Do you ship internationally?",

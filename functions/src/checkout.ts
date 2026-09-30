@@ -2,6 +2,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { db } from "./admin";
 import { getStripe, siteUrl, stripeSecretKey } from "./stripe";
 import { assertValidCustomVerse } from "./moderation";
+import { assertUkDeliveryAddress } from "./uk-address";
 import type {
   Address,
   CheckoutLineInput,
@@ -137,6 +138,7 @@ export const createCheckoutSession = onCall(
     };
     const address = { id: addressSnap.id, ...addressSnap.data() } as Address;
     const settings = settingsSnap.data() as StoreSettings;
+    assertUkDeliveryAddress(address);
 
     const { orderLines, subtotal, totalWeightGrams } = await repriceLines(input.lines);
 

@@ -21,19 +21,23 @@ export default function ShippingReturnsPage() {
           <h2>UK delivery</h2>
           <ul>
             <li>
-              <strong>Free delivery</strong> on all orders over £75.
+              <strong>Standard</strong> — £3.00, Royal Mail Tracked 48, 2–5 working
+              days.
             </li>
             <li>
-              <strong>Standard</strong> — £3.95, Royal Mail Tracked 48, 14 days.
+              <strong>Express</strong> — £9.00, Royal Mail Tracked 24, 1–3 working
+              days.
             </li>
             <li>
-              <strong>Express</strong> — £5.95, Royal Mail Tracked 24, 14 days.
-            </li>
-            <li>
-              <strong>Studio collection</strong> — free, ready within 14 days from
-              Peckham Levels, London.
+              <strong>Collect from store</strong> — free, from Peckham Levels,
+              London.
             </li>
           </ul>
+          <p>
+            Delivery is charged on every order, whatever the basket total. We
+            deliver to UK addresses only (not the Channel Islands, Isle of Man or
+            BFPO).
+          </p>
           <p>
             Orders are dispatched within 14 days.
             You&rsquo;ll get a tracking link by email as soon as your parcel is on its

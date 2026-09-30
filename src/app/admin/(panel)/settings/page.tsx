@@ -87,10 +87,9 @@ function SettingsForm({ settings }: { settings: StoreSettings }) {
 
         <Card title="Delivery methods">
           <p className="mb-4 text-xs text-muted-foreground">
-            Shipping is free on every order for now. Each method below has one
-            price band per weight bracket — once real Royal Mail rates are
-            sorted out, split a band or edit its price here to start charging
-            for it.
+            Delivery is charged on every order — there&rsquo;s no free-delivery
+            threshold. Each method has one price band per weight bracket; edit
+            a price, or add bands to charge heavier parcels more.
           </p>
           <div className="flex flex-col gap-5">
             {methods.map((method, i) => (
