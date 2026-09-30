@@ -43,7 +43,7 @@ export function CartSummary({
   }
 
   return (
-    <div className={cn("flex flex-col gap-2 text-sm", className)}>
+    <div className={cn("flex flex-col gap-2 text-base sm:text-sm", className)}>
       {rows.map((row) => (
         <div key={row.label} className="flex justify-between">
           <span className={cn(row.muted && "text-muted-foreground")}>
@@ -54,11 +54,11 @@ export function CartSummary({
           </span>
         </div>
       ))}
-      <div className="mt-2 flex justify-between border-t border-border pt-3 text-base font-medium">
+      <div className="mt-2 flex justify-between border-t border-border pt-3 text-lg font-medium sm:text-base">
         <span>Total</span>
         <span>{formatPrice(total)}</span>
       </div>
-      <p className="text-xs text-muted-foreground">VAT included where applicable.</p>
+      <p className="text-sm text-muted-foreground sm:text-xs">VAT included where applicable.</p>
     </div>
   );
 }

@@ -20,7 +20,7 @@ export function QuantityStepper({
   size = "md",
   className,
 }: QuantityStepperProps) {
-  const dim = size === "sm" ? "size-7" : "size-9";
+  const dim = size === "sm" ? "size-9 sm:size-7" : "size-9";
   return (
     <div
       className={cn(
@@ -43,7 +43,7 @@ export function QuantityStepper({
       <span
         className={cn(
           "min-w-8 text-center text-sm tabular-nums",
-          size === "sm" && "min-w-6",
+          size === "sm" && "text-base sm:min-w-6 sm:text-sm",
         )}
         aria-live="polite"
       >

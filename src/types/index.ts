@@ -166,6 +166,8 @@ export type ShippingMethod = {
   /** Ascending by maxWeightGrams. A parcel heavier than the last band can't ship via this method. */
   bands: ShippingBand[];
   estimate: string;
+  /** Pence. When the order's item total after discounts reaches this, the method is free. Absent = always charged. */
+  freeOverPence?: number;
 };
 
 export type OrderStatus =

@@ -36,9 +36,10 @@ export const DEFAULT_PER_PAGE = 9;
 export const DEFAULT_GARMENT_WEIGHT_GRAMS = 300;
 
 /**
- * Delivery options — all via Royal Mail, UK only. There's no free-delivery
- * threshold: every delivered order pays postage whatever the basket total;
- * only collecting from the studio is free. Prices are in pence and flat for
+ * Delivery options — all via Royal Mail, UK only. Standard delivery is free
+ * once the order's item total after discounts reaches `freeOverPence` (£100);
+ * express is always charged; collecting from the studio is always free.
+ * Prices are in pence and flat for
  * now (one band up to 20kg, Royal Mail's parcel limit). Split a band here —
  * or in Admin → Settings — to price by weight later.
  *
@@ -52,6 +53,7 @@ export const SHIPPING_METHODS: ShippingMethod[] = [
     description: "Royal Mail Tracked 48",
     estimate: "Delivered in 2–5 working days",
     bands: [{ maxWeightGrams: 20000, price: 300 }],
+    freeOverPence: 10000,
   },
   {
     id: "express",

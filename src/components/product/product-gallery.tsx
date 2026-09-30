@@ -33,7 +33,7 @@ export function ProductGallery({
   }, [emblaApi, images]);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <div className="overflow-hidden rounded-xl bg-cream" ref={emblaRef}>
         <div className="flex">
           {images.map((src, i) => (
@@ -56,7 +56,7 @@ export function ProductGallery({
       </div>
 
       {images.length > 1 && (
-        <div className="flex gap-2">
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
           {images.map((src, i) => (
             <button
               key={`${src}-thumb-${i}`}

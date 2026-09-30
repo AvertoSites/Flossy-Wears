@@ -28,7 +28,9 @@ export function CartLineItem({
         onClick={onNavigate}
         className={cn(
           "relative shrink-0 overflow-hidden rounded-md border border-border bg-cream",
-          compact ? "size-20" : "size-24 sm:size-28",
+          compact
+            ? "size-20 min-[380px]:size-24 sm:size-20"
+            : "size-20 min-[380px]:size-24 sm:size-28",
         )}
       >
         <Image
@@ -45,7 +47,7 @@ export function CartLineItem({
           <Link
             href={`/products/${item.slug}`}
             onClick={onNavigate}
-            className="text-sm font-medium leading-snug hover:underline"
+            className="min-w-0 break-words text-base font-medium leading-snug hover:underline sm:text-sm"
           >
             {item.name}
           </Link>
@@ -54,14 +56,14 @@ export function CartLineItem({
             compareAt={
               item.compareAtPrice ? item.compareAtPrice * item.quantity : undefined
             }
-            className="shrink-0 text-sm"
+            className="shrink-0 flex-col items-end gap-0 text-base sm:flex-row sm:items-baseline sm:gap-2 sm:text-sm"
           />
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground sm:text-xs">
           {item.colourLabel} · {item.size.toUpperCase()}
         </p>
         {item.customVerse && (
-          <p className="text-xs italic text-gold-dark">
+          <p className="text-sm italic text-gold-dark sm:text-xs">
             &ldquo;{item.customVerse.text}&rdquo; — {item.customVerse.reference}
             {item.customVerse.note && (
               <span className="block not-italic text-muted-foreground">
@@ -71,7 +73,7 @@ export function CartLineItem({
           </p>
         )}
 
-        <div className="mt-auto flex items-center justify-between pt-2">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2">
           <QuantityStepper
             value={item.quantity}
             min={1}
@@ -82,9 +84,9 @@ export function CartLineItem({
           <button
             type="button"
             onClick={() => removeItem(item.id)}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground sm:text-xs transition-colors hover:text-destructive"
           >
-            <Trash2Icon className="size-3.5" />
+            <Trash2Icon className="size-4 sm:size-3.5" />
             Remove
           </button>
         </div>

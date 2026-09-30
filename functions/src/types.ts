@@ -53,6 +53,8 @@ export type ShippingMethod = {
   description: string;
   bands: ShippingBand[];
   estimate: string;
+  /** Pence. When the order's item total after discounts reaches this, the method is free. */
+  freeOverPence?: number;
 };
 
 export type StoreSettings = {

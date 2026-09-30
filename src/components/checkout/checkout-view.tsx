@@ -55,7 +55,9 @@ export function CheckoutView() {
   const methods = settings?.shippingMethods ?? [];
   const activeMethodId = shippingMethodId ?? methods[0]?.id ?? null;
   const method = methods.find((m) => m.id === activeMethodId) ?? methods[0];
+  const discountedSubtotal = Math.max(0, subtotal - (promo?.discountPence ?? 0));
   const priceForMethod = (m: (typeof methods)[number]) => {
+    if (m.freeOverPence != null && discountedSubtotal >= m.freeOverPence) return 0;
     const sorted = [...m.bands].sort((a, b) => a.maxWeightGrams - b.maxWeightGrams);
     return (sorted.find((b) => totalWeightGrams <= b.maxWeightGrams) ?? sorted.at(-1))?.price ?? 0;
   };
@@ -250,6 +252,11 @@ export function CheckoutView() {
                           {m.estimate && (
                             <span className="text-xs text-muted-foreground">{m.estimate}</span>
                           )}
+                          {m.freeOverPence != null && price > 0 && (
+                            <span className="text-xs text-gold-dark">
+                              Free on orders over {formatPrice(m.freeOverPence, { compact: true })}
+                            </span>
+                          )}
                           <span className="text-xs text-muted-foreground">{m.description}</span>
                         </span>
                         <RadioGroupItem id={m.id} value={m.id} />
@@ -287,7 +294,7 @@ export function CheckoutView() {
                 <Button type="button" size="lg" disabled={submitting} onClick={onPay}>
                   {submitting
                     ? "Redirecting…"
-                    : `Pay ${formatPrice(Math.max(0, subtotal - (promo?.discountPence ?? 0)) + shippingCost)}`}
+                    : `Pay ${formatPrice(discountedSubtotal + shippingCost)}`}
                 </Button>
               </div>
             </div>

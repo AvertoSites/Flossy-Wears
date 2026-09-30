@@ -38,15 +38,15 @@ export function CartPageView() {
   return (
     <div className="container-page py-12">
       <h1 className="text-3xl">Your bag</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-1 text-base text-muted-foreground sm:text-sm">
         {count} {pluralise(count, "item")}
       </p>
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_360px]">
         <div className="flex flex-col gap-6">
-          <p className="flex items-center gap-2 text-sm text-gold-dark">
-            <TruckIcon className="size-4" />
-            Royal Mail delivery from £3 · free studio collection
+          <p className="flex items-center gap-2 text-base text-gold-dark sm:text-sm">
+            <TruckIcon className="size-5 sm:size-4" />
+            Free UK delivery on orders over £100
           </p>
           <div className="flex flex-col divide-y divide-border border-y border-border">
             {items.map((item) => (
@@ -92,16 +92,21 @@ export function CartPageView() {
                 value={promoInput}
                 onChange={(e) => setPromoInput(e.target.value)}
                 placeholder="Promo code"
-                className="pl-9"
+                className="h-11 pl-9 text-base sm:h-9 sm:text-sm"
               />
             </div>
-            <Button type="submit" variant="outline" disabled={checking}>
+            <Button
+              type="submit"
+              variant="outline"
+              className="h-11 text-base sm:h-9 sm:text-sm"
+              disabled={checking}
+            >
               Apply
             </Button>
           </form>
-          {promoError && <p className="text-xs text-destructive">{promoError}</p>}
+          {promoError && <p className="text-sm text-destructive sm:text-xs">{promoError}</p>}
           {promo && (
-            <p className="text-xs text-gold-dark">{promo.label} applied</p>
+            <p className="text-sm text-gold-dark sm:text-xs">{promo.label} applied</p>
           )}
 
           <CartSummary
@@ -110,10 +115,15 @@ export function CartPageView() {
             discountLabel={promo?.code}
           />
 
-          <Button asChild size="lg">
+          <Button asChild size="lg" className="h-12 text-base sm:h-10 sm:text-sm">
             <Link href="/checkout">Checkout</Link>
           </Button>
-          <Button asChild variant="ghost" size="sm">
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="h-10 text-base sm:h-8 sm:text-sm"
+          >
             <Link href="/shop">Continue shopping</Link>
           </Button>
         </aside>

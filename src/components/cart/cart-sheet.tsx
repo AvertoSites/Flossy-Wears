@@ -33,8 +33,8 @@ export function CartSheet() {
     <Sheet open={open} onOpenChange={setCartOpen}>
       <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
         <SheetHeader className="border-b border-border">
-          <SheetTitle className="flex items-center gap-2">
-            <ShoppingBagIcon className="size-4" />
+          <SheetTitle className="flex items-center gap-2 text-lg sm:text-base">
+            <ShoppingBagIcon className="size-5 sm:size-4" />
             Your bag
             {mounted && count > 0 && (
               <span className="text-muted-foreground">
@@ -49,9 +49,9 @@ export function CartSheet() {
         ) : (
           <>
             <div className="border-b border-border px-6 py-4">
-              <p className="flex items-center gap-2 text-sm text-gold-dark">
-                <TruckIcon className="size-4" />
-                Royal Mail delivery from £3 · free studio collection
+              <p className="flex items-center gap-2 text-base text-gold-dark sm:text-sm">
+                <TruckIcon className="size-5 sm:size-4" />
+                Free UK delivery on orders over £100
               </p>
             </div>
             <ScrollArea className="flex-1">
@@ -69,13 +69,19 @@ export function CartSheet() {
             <div className="flex flex-col gap-4 border-t border-border px-6 py-5">
               <CartSummary subtotal={subtotal} showShipping={false} />
               <div className="flex flex-col gap-2">
-                <Button asChild size="lg" onClick={close}>
+                <Button
+                  asChild
+                  size="lg"
+                  className="h-12 text-base sm:h-10 sm:text-sm"
+                  onClick={close}
+                >
                   <Link href="/checkout">Checkout</Link>
                 </Button>
                 <Button
                   asChild
                   size="lg"
                   variant="outline"
+                  className="h-12 text-base sm:h-10 sm:text-sm"
                   onClick={close}
                 >
                   <Link href="/cart">View bag</Link>

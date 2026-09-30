@@ -89,7 +89,7 @@ export function ProductPurchase({ product }: { product: Product }) {
         ]}
       />
 
-      <div className="mt-6 grid gap-10 lg:grid-cols-2">
+      <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-2">
         <ProductGallery images={galleryImages} alt={product.name} />
 
         <div className="flex flex-col gap-6">
@@ -206,7 +206,7 @@ export function ProductPurchase({ product }: { product: Product }) {
 
           {/* Quantity + actions */}
           <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 min-[380px]:flex-nowrap">
               <QuantityStepper
                 value={qty}
                 onChange={setQty}
@@ -214,7 +214,7 @@ export function ProductPurchase({ product }: { product: Product }) {
               />
               <Button
                 size="lg"
-                className="flex-1"
+                className="order-last basis-full min-[380px]:order-none min-[380px]:basis-auto min-[380px]:flex-1"
                 disabled={!selectedVariant}
                 onClick={handleAdd}
               >
@@ -242,7 +242,7 @@ export function ProductPurchase({ product }: { product: Product }) {
             </div>
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <TruckIcon className="size-4" />
-              UK delivery from £3
+              Free UK delivery over £100
               {" · "}
               Dispatched in 14 days
             </p>

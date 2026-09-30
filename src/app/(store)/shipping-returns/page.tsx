@@ -21,8 +21,8 @@ export default function ShippingReturnsPage() {
           <h2>UK delivery</h2>
           <ul>
             <li>
-              <strong>Standard</strong> — £3.00, Royal Mail Tracked 48, 2–5 working
-              days.
+              <strong>Standard</strong> — £3.00, or free on orders over £100.
+              Royal Mail Tracked 48, 2–5 working days.
             </li>
             <li>
               <strong>Express</strong> — £9.00, Royal Mail Tracked 24, 1–3 working

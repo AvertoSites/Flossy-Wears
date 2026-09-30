@@ -13,7 +13,7 @@ export const faqGroups: FaqGroup[] = [
       },
       {
         q: "Is delivery free?",
-        a: "Delivery is charged on every order, whatever its total: standard is £3.00 and express is £9.00. Collecting from our studio at Peckham Levels is free.",
+        a: "Standard delivery is free on orders over £100 (after any discount code); below that it's £3.00. Express is £9.00 on every order. Collecting from our studio at Peckham Levels is always free.",
       },
       {
         q: "Do you ship internationally?",

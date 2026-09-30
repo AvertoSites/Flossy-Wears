@@ -146,7 +146,6 @@ export const createCheckoutSession = onCall(
       settings.shippingMethods.find((m) => m.id === input.shippingMethodId) ??
       settings.shippingMethods[0];
     if (!method) throw new HttpsError("internal", "No shipping methods configured.");
-    const shipping = priceForWeight(method.bands, totalWeightGrams);
 
     let discountPence = 0;
     let discountCode: string | null = null;
@@ -166,7 +165,11 @@ export const createCheckoutSession = onCall(
       // the cart page already validated it via /api/discounts/validate.
     }
 
-    const total = Math.max(0, subtotal - discountPence) + shipping;
+    const discountedSubtotal = Math.max(0, subtotal - discountPence);
+    const freeShipping =
+      method.freeOverPence != null && discountedSubtotal >= method.freeOverPence;
+    const shipping = freeShipping ? 0 : priceForWeight(method.bands, totalWeightGrams);
+    const total = discountedSubtotal + shipping;
 
     let stripeCustomerId = user.stripeCustomerId;
     if (!stripeCustomerId) {

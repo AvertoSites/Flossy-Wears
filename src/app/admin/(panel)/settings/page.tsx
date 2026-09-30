@@ -87,9 +87,10 @@ function SettingsForm({ settings }: { settings: StoreSettings }) {
 
         <Card title="Delivery methods">
           <p className="mb-4 text-xs text-muted-foreground">
-            Delivery is charged on every order — there&rsquo;s no free-delivery
-            threshold. Each method has one price band per weight bracket; edit
-            a price, or add bands to charge heavier parcels more.
+            Each method has one price band per weight bracket; edit a price, or
+            add bands to charge heavier parcels more. &ldquo;Free over&rdquo;
+            makes a method free once the order total (after discounts) reaches
+            that amount — leave it blank to always charge.
           </p>
           <div className="flex flex-col gap-5">
             {methods.map((method, i) => (
@@ -106,6 +107,34 @@ function SettingsForm({ settings }: { settings: StoreSettings }) {
                         m.map((x, xi) =>
                           xi === i ? { ...x, description: e.target.value } : x,
                         ),
+                      )
+                    }
+                  />
+                </div>
+                <div className="mt-3 flex max-w-48 flex-col gap-1.5">
+                  <Label className="text-xs">Free over (£)</Label>
+                  <Input
+                    inputMode="decimal"
+                    placeholder="Always charged"
+                    value={
+                      method.freeOverPence != null
+                        ? (method.freeOverPence / 100).toString()
+                        : ""
+                    }
+                    onChange={(e) =>
+                      setMethods((m) =>
+                        m.map((x, xi) => {
+                          if (xi !== i) return x;
+                          const raw = e.target.value.trim();
+                          const pence = Math.round(parseFloat(raw) * 100);
+                          if (!raw || Number.isNaN(pence)) {
+                            // Drop the key entirely — Firestore rejects undefined.
+                            const rest = { ...x };
+                            delete rest.freeOverPence;
+                            return rest;
+                          }
+                          return { ...x, freeOverPence: pence };
+                        }),
                       )
                     }
                   />
