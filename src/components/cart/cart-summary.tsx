@@ -1,3 +1,4 @@
+import { TAX_RATE, taxFor } from "@/lib/constants";
 import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +9,7 @@ export function CartSummary({
   shipping,
   discount = 0,
   discountLabel,
+  tax,
   showShipping = true,
   className,
 }: {
@@ -15,10 +17,14 @@ export function CartSummary({
   shipping?: number;
   discount?: number;
   discountLabel?: string;
+  /** Pence. Pass a placed order's stored tax; omitted, it's previewed from the discounted subtotal. */
+  tax?: number;
   showShipping?: boolean;
   className?: string;
 }) {
-  const total = Math.max(0, subtotal - discount) + (shipping ?? 0);
+  const discountedSubtotal = Math.max(0, subtotal - discount);
+  const taxPence = tax ?? taxFor(discountedSubtotal);
+  const total = discountedSubtotal + (shipping ?? 0) + taxPence;
 
   const rows: Row[] = [
     { label: "Subtotal", value: formatPrice(subtotal) },
@@ -41,6 +47,9 @@ export function CartSummary({
       muted: shipping === undefined,
     });
   }
+  if (taxPence > 0) {
+    rows.push({ label: `Tax (${TAX_RATE * 100}%)`, value: formatPrice(taxPence) });
+  }
 
   return (
     <div className={cn("flex flex-col gap-2 text-base sm:text-sm", className)}>
@@ -58,7 +67,6 @@ export function CartSummary({
         <span>Total</span>
         <span>{formatPrice(total)}</span>
       </div>
-      <p className="text-sm text-muted-foreground sm:text-xs">VAT included where applicable.</p>
     </div>
   );
 }

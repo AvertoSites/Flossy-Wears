@@ -190,6 +190,7 @@ export async function sendOrderConfirmationEmail(order: {
   subtotal: number;
   shipping: number;
   discount: number;
+  tax: number;
   total: number;
 } & OrderDelivery) {
   const itemRows = order.lines
@@ -231,6 +232,7 @@ export async function sendOrderConfirmationEmail(order: {
       <tr><td style="padding:3px 0">Subtotal</td><td style="padding:3px 0;text-align:right">${formatPrice(order.subtotal)}</td></tr>
       ${order.discount > 0 ? `<tr><td style="padding:3px 0">Discount</td><td style="padding:3px 0;text-align:right;color:${COLORS.green}">-${formatPrice(order.discount)}</td></tr>` : ""}
       <tr><td style="padding:3px 0">${collecting ? "Collect from store" : `Delivery (${escapeHtml(order.shippingMethod)})`}</td><td style="padding:3px 0;text-align:right">${order.shipping === 0 ? "Free" : formatPrice(order.shipping)}</td></tr>
+      ${order.tax > 0 ? `<tr><td style="padding:3px 0">Tax</td><td style="padding:3px 0;text-align:right">${formatPrice(order.tax)}</td></tr>` : ""}
       <tr>
         <td style="padding:10px 0 0;border-top:1px solid ${COLORS.border};font-weight:700;color:${COLORS.ink};font-size:15px">Total paid</td>
         <td style="padding:10px 0 0;border-top:1px solid ${COLORS.border};text-align:right;font-weight:700;color:${COLORS.ink};font-size:15px">${formatPrice(order.total)}</td>
@@ -255,6 +257,7 @@ export async function sendOrderConfirmationEmail(order: {
       `Subtotal: ${formatPrice(order.subtotal)}`,
       order.discount > 0 ? `Discount: -${formatPrice(order.discount)}` : "",
       `${collecting ? "Collect from store" : `Delivery (${order.shippingMethod})`}: ${order.shipping === 0 ? "Free" : formatPrice(order.shipping)}`,
+      order.tax > 0 ? `Tax: ${formatPrice(order.tax)}` : "",
       `Total paid: ${formatPrice(order.total)}`,
       "",
       ...(collecting

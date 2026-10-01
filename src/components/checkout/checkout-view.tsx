@@ -18,6 +18,7 @@ import { useAddresses, addressesQueryKey } from "@/lib/firebase/addresses";
 import { useStoreSettings } from "@/lib/queries/use-store-settings";
 import { createCheckoutSession } from "@/lib/firebase/functions";
 import { formatPrice } from "@/lib/format";
+import { taxFor } from "@/lib/constants";
 import { isCollectionMethod } from "@/lib/delivery";
 import { site } from "@/lib/data/site";
 import { isValidUkPhone } from "@/lib/validations/uk-address";
@@ -403,7 +404,7 @@ export function CheckoutView() {
                 <Button type="button" size="lg" disabled={submitting} onClick={onPay}>
                   {submitting
                     ? "Redirecting…"
-                    : `Pay ${formatPrice(discountedSubtotal + shippingCost)}`}
+                    : `Pay ${formatPrice(discountedSubtotal + shippingCost + taxFor(discountedSubtotal))}`}
                 </Button>
               </div>
             </div>

@@ -74,3 +74,15 @@ export const SHIPPING_METHODS: ShippingMethod[] = [
 ];
 
 export const RETURN_WINDOW_DAYS = 30;
+
+/**
+ * Tax added on top of the products' total after discounts — never on delivery.
+ * Only a preview: the Cloud Function charges its own TAX_RATE
+ * (functions/src/checkout.ts), so keep the two in sync.
+ */
+export const TAX_RATE = 0.025;
+
+/** Pence of tax on an already-discounted product total. */
+export function taxFor(discountedSubtotal: number): number {
+  return Math.round(discountedSubtotal * TAX_RATE);
+}

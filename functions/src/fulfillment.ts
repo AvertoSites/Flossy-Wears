@@ -95,6 +95,7 @@ export async function fulfillCheckoutSession(sessionId: string): Promise<void> {
     subtotal: order.subtotal,
     shipping: order.shipping,
     discount: order.discount,
+    tax: order.tax ?? 0,
     total: order.total,
     shippingMethod: order.shippingMethod,
     deliveryType: order.deliveryType as DeliveryType | undefined,

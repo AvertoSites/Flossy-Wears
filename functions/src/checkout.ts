@@ -39,6 +39,10 @@ const ALLOWED_ORIGINS = [
 // tee/sweatshirt in its mailer, roughly.
 const DEFAULT_GARMENT_WEIGHT_GRAMS = 300;
 
+// Tax charged on the products (after discounts) — never on delivery. Keep in
+// sync with TAX_RATE in src/lib/constants.ts, which the storefront previews.
+const TAX_RATE = 0.025;
+
 /** First band (ascending) whose cap covers `grams`. Throws if the parcel is too heavy for this method — better than silently undercharging real postage. */
 function priceForWeight(bands: ShippingBand[], grams: number): number {
   const sorted = [...bands].sort((a, b) => a.maxWeightGrams - b.maxWeightGrams);
@@ -186,8 +190,17 @@ export const createCheckoutSession = onCall(
         const percentOff = discSnap.data()!.percentOff as number;
         discountCode = code;
         discountPence = Math.round((subtotal * percentOff) / 100);
-        const coupon = await stripe.coupons.create({ percent_off: percentOff, duration: "once" });
-        stripeCouponId = coupon.id;
+        // A fixed amount rather than percent_off: Stripe applies a percentage
+        // to every line, including shipping and tax, which would charge less
+        // than the `total` we store on the order.
+        if (discountPence > 0) {
+          const coupon = await stripe.coupons.create({
+            amount_off: discountPence,
+            currency: "gbp",
+            duration: "once",
+          });
+          stripeCouponId = coupon.id;
+        }
       }
       // Silently ignore an invalid/inactive code rather than blocking checkout —
       // the cart page already validated it via /api/discounts/validate.
@@ -197,7 +210,8 @@ export const createCheckoutSession = onCall(
     const freeShipping =
       method.freeOverPence != null && discountedSubtotal >= method.freeOverPence;
     const shipping = freeShipping ? 0 : priceForWeight(method.bands, totalWeightGrams);
-    const total = discountedSubtotal + shipping;
+    const tax = Math.round(discountedSubtotal * TAX_RATE);
+    const total = discountedSubtotal + shipping + tax;
 
     let stripeCustomerId = user.stripeCustomerId;
     // A stored ID may belong to the other Stripe mode (test vs live) or have
@@ -264,6 +278,17 @@ export const createCheckoutSession = onCall(
       });
     }
 
+    if (tax > 0) {
+      lineItems.push({
+        quantity: 1,
+        price_data: {
+          currency: "gbp",
+          unit_amount: tax,
+          product_data: { name: `Tax (${TAX_RATE * 100}%)` },
+        },
+      });
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer: stripeCustomerId,
@@ -289,6 +314,7 @@ export const createCheckoutSession = onCall(
         shipping,
         discount: discountPence,
         discountCode,
+        tax,
         total,
         shippingMethod: method.label,
         deliveryType: collecting ? "collection" : "delivery",

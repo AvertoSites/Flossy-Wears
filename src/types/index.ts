@@ -248,6 +248,8 @@ export type Order = {
   subtotal: number;
   shipping: number;
   discount: number;
+  /** Pence. Absent on orders placed before tax was charged. */
+  tax?: number;
   total: number;
   /** Absent on collection orders — the customer picks up in store. */
   shippingAddress?: Address;

@@ -392,6 +392,7 @@ export default function AdminOrderDetailPage() {
                 label={collecting ? "Collect from store" : "Delivery"}
                 value={order.shipping === 0 ? "Free" : formatPrice(order.shipping)}
               />
+              {(order.tax ?? 0) > 0 && <Row label="Tax" value={formatPrice(order.tax!)} />}
               {(order.refundedAmount ?? 0) > 0 && (
                 <Row
                   label="Refunded"

@@ -5,12 +5,14 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Reads a custom claim on the ID token rather than calling firestore.get()
-    // cross-service — set via `auth.setCustomUserClaims(uid, { admin: true })`
-    // (Admin SDK) whenever a user's users/{uid}.role is set to "admin". Faster
-    // and avoids a cross-service Storage->Firestore rules call.
+    // Same source of truth as firestore.rules and the admin UI: the
+    // users/{uid}.role field, read cross-service. (Nothing in this project
+    // sets an `admin` custom claim, so a token-claim check rejected every
+    // real admin.) Needs the Storage service agent's Firestore access, which
+    // the CLI offers to grant on the first `firebase deploy --only storage`.
     function isAdmin() {
-      return request.auth != null && request.auth.token.admin == true;
+      return request.auth != null &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // Public product photos: anyone can view (they're rendered on the public
