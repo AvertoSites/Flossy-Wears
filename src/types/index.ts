@@ -263,6 +263,8 @@ export type Order = {
   paymentStatus?: PaymentStatus;
   stripePaymentIntentId?: string;
   refundedAmount?: number;
+  /** Set when a cancel/refund put this order's items back into stock — guards against restocking twice. */
+  restockedAt?: string;
   carrier?: string;
   trackingNumber?: string;
   shippedAt?: string;

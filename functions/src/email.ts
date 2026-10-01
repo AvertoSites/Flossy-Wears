@@ -144,12 +144,19 @@ function emailShell(opts: { previewText: string; bodyHtml: string }): string {
 </html>`;
 }
 
+type SendResult = { sent: boolean; error?: string };
+
 /** Best-effort send via Resend's REST API — a failed/unconfigured send must never block order fulfillment. */
-async function sendEmail(input: { to: string | string[]; subject: string; html: string; text: string }) {
+async function sendEmail(input: {
+  to: string | string[];
+  subject: string;
+  html: string;
+  text: string;
+}): Promise<SendResult> {
   const apiKey = resendApiKey.value();
   if (!apiKey) {
     logger.warn("sendEmail: RESEND_API_KEY not configured, skipping", { to: input.to, subject: input.subject });
-    return;
+    return { sent: false, error: "RESEND_API_KEY not configured" };
   }
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -164,10 +171,14 @@ async function sendEmail(input: { to: string | string[]; subject: string; html: 
       }),
     });
     if (!res.ok) {
-      logger.error(`sendEmail: Resend ${res.status}`, { body: await res.text().catch(() => "") });
+      const body = await res.text().catch(() => "");
+      logger.error(`sendEmail: Resend ${res.status}`, { body });
+      return { sent: false, error: `Resend ${res.status}: ${body}` };
     }
+    return { sent: true };
   } catch (err) {
     logger.error("sendEmail: request failed", err);
+    return { sent: false, error: err instanceof Error ? err.message : "Request failed" };
   }
 }
 
@@ -351,5 +362,76 @@ export async function sendNewOrderAdminEmail(order: {
       previewText: `${order.customerName} paid ${formatPrice(order.total)} — order ${order.number}.`,
       bodyHtml,
     }),
+  });
+}
+
+/**
+ * Tells the customer about a refund and/or cancellation — sent by the
+ * refundOrder function, so a cancel-with-refund is one email, not two.
+ */
+export async function sendRefundEmail(order: {
+  number: string;
+  customerEmail: string;
+  customerName: string;
+  lines: OrderLine[];
+  /** Pence refunded by this action (0 when cancelling an order already refunded). */
+  refundAmount: number;
+  totalRefunded: number;
+  orderTotal: number;
+  cancelled: boolean;
+}): Promise<SendResult> {
+  const refunded = order.refundAmount > 0;
+  const heading = order.cancelled
+    ? `Order ${order.number} has been cancelled`
+    : `We've refunded ${formatPrice(order.refundAmount)} on order ${order.number}`;
+  const refundLine = refunded
+    ? `We've refunded <strong style="color:${COLORS.ink}">${formatPrice(order.refundAmount)}</strong> to your original payment method. Refunds usually take 5–10 working days to appear, depending on your bank.`
+    : order.totalRefunded > 0
+      ? `Your payment of ${formatPrice(order.totalRefunded)} has already been refunded to your original payment method.`
+      : "";
+  const partialNote =
+    refunded && order.totalRefunded < order.orderTotal
+      ? `So far ${formatPrice(order.totalRefunded)} of your ${formatPrice(order.orderTotal)} order has been refunded.`
+      : "";
+  const greeting = order.customerName ? `Hi ${order.customerName.split(" ")[0]},` : "Hi,";
+  const orderUrl = `${SITE.url}/account/orders/${order.number}`;
+
+  const bodyHtml = `
+    <h1 style="margin:0 0 14px;font-size:21px;color:${COLORS.ink}">${escapeHtml(heading)}</h1>
+    <p style="margin:0 0 10px;font-size:14px;color:${COLORS.ink}">${escapeHtml(greeting)}</p>
+    ${order.cancelled ? `<p style="margin:0 0 10px;font-size:14px;color:${COLORS.muted}">Your order <strong style="color:${COLORS.ink}">${escapeHtml(order.number)}</strong> has been cancelled and won&rsquo;t be sent or made ready for collection.</p>` : ""}
+    ${refundLine ? `<p style="margin:0 0 10px;font-size:14px;color:${COLORS.muted}">${refundLine}</p>` : ""}
+    ${partialNote ? `<p style="margin:0 0 10px;font-size:14px;color:${COLORS.muted}">${escapeHtml(partialNote)}</p>` : ""}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px">${productRowsHtml(order.lines)}</table>
+    <p style="margin:18px 0 0;font-size:13.5px;color:${COLORS.muted}">If you didn&rsquo;t expect this or have any questions, just reply or contact us below.</p>
+    ${button("View your order", orderUrl)}
+  `;
+
+  return sendEmail({
+    to: order.customerEmail,
+    subject: order.cancelled
+      ? `Order ${order.number} cancelled${refunded ? ` — ${formatPrice(order.refundAmount)} refunded` : ""} — ${SITE.name}`
+      : `Refund of ${formatPrice(order.refundAmount)} for order ${order.number} — ${SITE.name}`,
+    text: [
+      heading,
+      "",
+      greeting,
+      order.cancelled ? `Your order ${order.number} has been cancelled and won't be sent or made ready for collection.` : "",
+      refunded
+        ? `We've refunded ${formatPrice(order.refundAmount)} to your original payment method. Refunds usually take 5-10 working days to appear, depending on your bank.`
+        : order.totalRefunded > 0
+          ? `Your payment of ${formatPrice(order.totalRefunded)} has already been refunded to your original payment method.`
+          : "",
+      partialNote,
+      "",
+      "Items:",
+      ...order.lines.map((l) => `${l.quantity} × ${l.name}`),
+      "",
+      `View your order: ${orderUrl}`,
+      `Questions? Reach us at ${SITE.email} or ${SITE.phone}.`,
+    ]
+      .filter((l, i, all) => l !== "" || all[i - 1] !== "")
+      .join("\n"),
+    html: emailShell({ previewText: heading, bodyHtml }),
   });
 }

@@ -67,6 +67,7 @@ export default function AdminOrderDetailPage() {
   const [notify, setNotify] = useState(true);
   const [note, setNote] = useState("");
   const [refundOpen, setRefundOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   useEffect(() => {
     if (!order) return;
@@ -116,7 +117,29 @@ export default function AdminOrderDetailPage() {
     mutationFn: () => refundOrder(id),
     onSuccess: (res) => {
       invalidate();
-      toast.success(`Refund of ${formatPrice(res.amount)} issued`);
+      toast.success(
+        `Refund of ${formatPrice(res.amount)} issued${res.cancelled ? " · order cancelled" : ""}${res.restocked ? " · items back in stock" : ""} · customer emailed`,
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Cancelling always goes through the refund function so the payment is
+  // refunded, stock is returned and the customer gets one email.
+  const cancelOrder = useMutation({
+    mutationFn: () => refundOrder(id, { cancel: true }),
+    onSuccess: (res) => {
+      invalidate();
+      toast.success(
+        [
+          "Order cancelled",
+          res.amount > 0 && `${formatPrice(res.amount)} refunded`,
+          res.restocked && "items back in stock",
+          "customer emailed",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -157,6 +180,10 @@ export default function AdminOrderDetailPage() {
     ? STATUSES.filter((s) => s !== "shipped" || order.status === "shipped")
     : STATUSES;
   const refundable = order.total - (order.refundedAmount ?? 0);
+  // Items are still with us (not shipped/collected) and haven't been restocked already.
+  const willRestock =
+    (order.status === "processing" || order.status === "packed") && !order.restockedAt;
+  const cancelling = status === "cancelled" && order.status !== "cancelled";
   const dirty =
     status !== order.status ||
     carrier !== (order.carrier ?? "") ||
@@ -289,10 +316,15 @@ export default function AdminOrderDetailPage() {
 
             <div className="mt-4 flex items-center gap-2">
               <Button
-                onClick={() => fulfil.mutate()}
-                disabled={fulfil.isPending || (!dirty && !notify)}
+                variant={cancelling ? "destructive" : "default"}
+                onClick={() => (cancelling ? setCancelOpen(true) : fulfil.mutate())}
+                disabled={fulfil.isPending || cancelOrder.isPending || (!dirty && !notify)}
               >
-                {fulfil.isPending ? "Saving…" : "Save & update customer"}
+                {fulfil.isPending || cancelOrder.isPending
+                  ? "Saving…"
+                  : cancelling
+                    ? "Cancel order…"
+                    : "Save & update customer"}
               </Button>
               <Link
                 href={`/track?order=${order.number}`}
@@ -531,13 +563,42 @@ export default function AdminOrderDetailPage() {
         description={
           <span>
             This refunds the remaining balance to the original payment method via
-            Stripe.
+            Stripe and emails the customer.
+            {order.status !== "delivered" && (
+              <>
+                {" "}
+                The order will also be cancelled
+                {willRestock ? " and its items returned to stock" : ""}.
+              </>
+            )}
           </span>
         }
         confirmLabel="Issue refund"
         destructive
         onConfirm={async () => {
           await refund.mutateAsync();
+        }}
+      />
+
+      <ConfirmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title={`Cancel order ${order.number}?`}
+        description={
+          <span>
+            {refundable > 0 && order.stripePaymentIntentId
+              ? `${formatPrice(refundable)} will be refunded to ${order.customerName}'s original payment method via Stripe. `
+              : "Nothing is left to refund. "}
+            {willRestock
+              ? "The items go back into stock. "
+              : "Stock isn't changed — the items have already left the shop (or were restocked before). "}
+            The customer is emailed that the order is cancelled. This can&rsquo;t be undone.
+          </span>
+        }
+        confirmLabel="Cancel order & refund"
+        destructive
+        onConfirm={async () => {
+          await cancelOrder.mutateAsync();
         }}
       />
     </>

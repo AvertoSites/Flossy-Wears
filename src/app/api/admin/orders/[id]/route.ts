@@ -44,6 +44,18 @@ export async function PATCH(
       return Response.json({ error: "Invalid status" }, { status: 400 });
     }
 
+    // Cancelling must refund, restock and email the customer, which the
+    // refundOrder Cloud Function does — never just flip the status here.
+    if (body.status === "cancelled") {
+      const current = await getOrderById(id);
+      if (current && current.status !== "cancelled") {
+        return Response.json(
+          { error: "Use “Cancel order” so the payment is refunded and stock returned." },
+          { status: 400 },
+        );
+      }
+    }
+
     const order = await updateFulfillment(id, {
       status: body.status as OrderStatus | undefined,
       carrier: typeof body.carrier === "string" ? body.carrier : undefined,

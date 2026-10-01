@@ -29,11 +29,21 @@ export async function confirmCheckoutSession(sessionId: string): Promise<{ ok: b
   return data;
 }
 
-export async function refundOrder(orderId: string, amount?: number): Promise<{ amount: number }> {
-  const call = httpsCallable<{ orderId: string; amount?: number }, { amount: number }>(
-    functions,
-    "refundOrder",
-  );
-  const { data } = await call({ orderId, amount });
+type RefundResult = { amount: number; cancelled: boolean; restocked: boolean };
+
+/**
+ * Refunds via Stripe and emails the customer. With `cancel: true` it also
+ * cancels the order — refunding whatever is left and returning items to
+ * stock if they haven't shipped. A full refund before delivery cancels too.
+ */
+export async function refundOrder(
+  orderId: string,
+  opts: { amount?: number; cancel?: boolean } = {},
+): Promise<RefundResult> {
+  const call = httpsCallable<
+    { orderId: string; amount?: number; cancel?: boolean },
+    RefundResult
+  >(functions, "refundOrder");
+  const { data } = await call({ orderId, ...opts });
   return data;
 }
