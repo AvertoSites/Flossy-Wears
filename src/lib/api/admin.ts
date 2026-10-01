@@ -42,6 +42,22 @@ function orderEvent(event: Omit<OrderEvent, "id" | "at">): OrderEvent {
   return { id: `evt_${Math.random().toString(36).slice(2, 9)}`, at: now(), ...clean };
 }
 
+/**
+ * `createCheckoutSession` writes an order doc as soon as Stripe Checkout
+ * opens, so the collection also holds abandoned ("pending") and declined
+ * ("failed") checkouts. Those were never paid — keep them out of every admin
+ * list, total and chart.
+ */
+function isPlacedOrder(order: Order): boolean {
+  const status = order.paymentStatus as string | undefined;
+  return status !== "pending" && status !== "failed";
+}
+
+async function placedOrders(query: FirebaseFirestore.Query = adminDb.collection("orders")) {
+  const snap = await query.get();
+  return snap.docs.map((d) => d.data() as Order).filter(isPlacedOrder);
+}
+
 async function findOrderRef(id: string) {
   const byId = adminDb.collection("orders").doc(id);
   const snap = await byId.get();
@@ -68,8 +84,7 @@ export async function listOrders(params: {
       query = query.where("status", "==", params.status);
     }
   }
-  const snap = await query.get();
-  let orders = snap.docs.map((d) => d.data() as Order);
+  let orders = await placedOrders(query);
 
   if (params.q) {
     const q = params.q.toLowerCase();
@@ -504,10 +519,8 @@ export async function listLowStock(threshold = 4): Promise<LowStockRow[]> {
 /* -------------------------------- customers -------------------------------- */
 
 export async function listCustomers(): Promise<Customer[]> {
-  const snap = await adminDb.collection("orders").get();
   const byEmail = new Map<string, Customer>();
-  for (const doc of snap.docs) {
-    const order = doc.data() as Order;
+  for (const order of await placedOrders()) {
     const email = order.customerEmail ?? "unknown@example.com";
     const [firstName, ...rest] = (order.customerName ?? "Guest").split(" ");
     const existing =
@@ -541,11 +554,9 @@ export async function getCustomerByEmail(email: string): Promise<{
   const customers = await listCustomers();
   const customer = customers.find((c) => c.email === email);
   if (!customer) return null;
-  const snap = await adminDb
-    .collection("orders")
-    .where("customerEmail", "==", email)
-    .get();
-  const orders = snap.docs.map((d) => d.data() as Order);
+  const orders = await placedOrders(
+    adminDb.collection("orders").where("customerEmail", "==", email),
+  );
   return { customer, orders };
 }
 
@@ -649,11 +660,9 @@ export async function updateSettings(
 /* -------------------------------- dashboard ------------------------------ */
 
 export async function getAdminSummary(): Promise<AdminSummary> {
-  const snap = await adminDb.collection("orders").get();
-  const orders = snap.docs.map((d) => d.data() as Order);
-  const paid = orders.filter((o) => o.paymentStatus !== "pending");
+  const orders = await placedOrders();
 
-  const revenue = paid.reduce(
+  const revenue = orders.reduce(
     (s, o) => s + (o.total - (o.refundedAmount ?? 0)),
     0,
   );
@@ -711,8 +720,7 @@ export async function getPaymentsOverview(): Promise<PaymentsOverview> {
     throw new Error("STRIPE_SECRET_KEY is not configured.");
   }
 
-  const snap = await adminDb.collection("orders").get();
-  const orders = snap.docs.map((d) => d.data() as Order);
+  const orders = await placedOrders();
   const payments = orders.map((o) => ({
     id: o.stripePaymentIntentId ?? o.number,
     orderNumber: o.number,

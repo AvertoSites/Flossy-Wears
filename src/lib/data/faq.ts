@@ -9,7 +9,7 @@ export const faqGroups: FaqGroup[] = [
     items: [
       {
         q: "How long does delivery take?",
-        a: "UK standard delivery (Royal Mail Tracked 48) takes 2–5 working days. Express (Tracked 24) takes 1–3 working days. Orders are dispatched within 14 days.",
+        a: "Every piece is made to order, so please allow up to 14 days for manufacturing. Once it's made, Express delivery (Royal Mail Tracked 24) takes 1–3 working days and Standard (Tracked 48) takes 2–5 working days. Collection orders are ready within the same 14 days — we'll email you when yours is.",
       },
       {
         q: "Is delivery free?",

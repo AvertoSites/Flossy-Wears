@@ -22,11 +22,11 @@ export default function ShippingReturnsPage() {
           <ul>
             <li>
               <strong>Standard</strong> — £3.00, or free on orders over £100.
-              Royal Mail Tracked 48, 2–5 working days.
+              Royal Mail Tracked 48, 2–5 working days once dispatched.
             </li>
             <li>
               <strong>Express</strong> — £9.00, Royal Mail Tracked 24, 1–3 working
-              days.
+              days once dispatched.
             </li>
             <li>
               <strong>Collect from store</strong> — free, from{" "}
@@ -54,10 +54,14 @@ export default function ShippingReturnsPage() {
             total. We deliver to UK addresses only (not the Channel Islands, Isle of Man or
             BFPO).
           </p>
+          <h2>How long will my order take?</h2>
           <p>
-            Orders are dispatched within 14 days.
-            You&rsquo;ll get a tracking link by email as soon as your parcel is on its
-            way.
+            Every piece is made to order, so please allow{" "}
+            <strong>up to 14 days for manufacturing</strong>. Once it&rsquo;s made,
+            delivery takes <strong>1–3 working days</strong> with Express (2–5 with
+            Standard). You&rsquo;ll get a tracking link by email as soon as your parcel
+            is on its way. Collection orders are ready within the same 14 days —
+            we&rsquo;ll email you when yours is.
           </p>
 
           <h2>International</h2>
@@ -69,9 +73,13 @@ export default function ShippingReturnsPage() {
           <h2>Returns</h2>
           <p>
             Return any unworn item with its tags attached within{" "}
-            <strong>30 days</strong> of delivery for a full refund. Start a return
-            from your <Link href="/account/orders">order history</Link> or email
-            us.
+            <strong>30 days</strong> of delivery (or collection) for a full
+            refund. To start a return, email{" "}
+            <a href={`mailto:${site.email}?subject=Return request`}>{site.email}</a>{" "}
+            with your order number (you&rsquo;ll find it in your{" "}
+            <Link href="/account/orders">order history</Link> and confirmation
+            email) and the item(s) you&rsquo;re returning — we&rsquo;ll reply with
+            where to send them.
           </p>
           <ul>
             <li>Refunds are processed within 5 working days of us receiving the parcel.</li>
