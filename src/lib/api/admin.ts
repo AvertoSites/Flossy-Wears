@@ -5,6 +5,7 @@ import { revalidateTag } from "next/cache";
 import Stripe from "stripe";
 import { adminDb, adminStorage, stripUndefinedDeep } from "@/lib/firebase/admin";
 import { sendTrackingUpdateEmail } from "@/lib/email/resend";
+import { collectionPointFor, isCollectionOrder } from "@/lib/delivery";
 import type {
   AdminSummary,
   Customer,
@@ -161,8 +162,11 @@ export async function updateFulfillment(
   // Shipped/delivered/cancelled are the transitions a customer needs to hear
   // about regardless of whether the admin remembered to tick "notify" —
   // everything else (processing, packed, a tracking-number-only edit) stays
-  // opt-in via the checkbox.
-  const ALWAYS_NOTIFY_STATUSES: OrderStatus[] = ["shipped", "delivered", "cancelled"];
+  // opt-in via the checkbox. For collection orders "packed" means "ready to
+  // collect", which the customer is waiting on, so it always emails too.
+  const ALWAYS_NOTIFY_STATUSES: OrderStatus[] = isCollectionOrder(updated)
+    ? ["packed", "delivered", "cancelled"]
+    : ["shipped", "delivered", "cancelled"];
   const shouldNotify =
     input.notifyCustomer || (statusChanged && ALWAYS_NOTIFY_STATUSES.includes(updated.status));
 
@@ -186,6 +190,7 @@ async function notifyCustomerOfUpdate(order: Order): Promise<void> {
     trackingNumber: order.trackingNumber,
     trackingUrl: order.trackingUrl,
     lines: order.lines,
+    ...(isCollectionOrder(order) && { collection: collectionPointFor(order) }),
   });
 
   await ref.update({
@@ -193,8 +198,8 @@ async function notifyCustomerOfUpdate(order: Order): Promise<void> {
       orderEvent({
         kind: "notification",
         label: result.sent
-          ? `Tracking update emailed to ${order.customerEmail}`
-          : `Tracking update email NOT sent to ${order.customerEmail}`,
+          ? `Status update emailed to ${order.customerEmail}`
+          : `Status update email NOT sent to ${order.customerEmail}`,
         detail: result.sent ? undefined : result.error,
       }),
     ),

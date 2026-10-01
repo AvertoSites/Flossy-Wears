@@ -1,7 +1,7 @@
 import "server-only";
 
 import { site } from "@/lib/data/site";
-import type { OrderLine } from "@/types";
+import type { CollectionPoint, OrderLine } from "@/types";
 
 // Matches src/app/globals.css `--brand-*` tokens.
 const COLORS = {
@@ -21,6 +21,14 @@ const STATUS_COPY: Record<string, string> = {
   packed: "has been packed and is ready to ship",
   shipped: "is on its way",
   delivered: "has been delivered",
+  cancelled: "has been cancelled",
+};
+
+// Collection orders are picked up in store — never "shipped" or "delivered".
+const COLLECTION_STATUS_COPY: Record<string, string> = {
+  processing: "is being prepared for collection",
+  packed: "is ready to collect",
+  delivered: "has been collected — thank you",
   cancelled: "has been cancelled",
 };
 
@@ -156,18 +164,59 @@ export async function sendTrackingUpdateEmail(input: {
   trackingNumber?: string;
   trackingUrl?: string;
   lines?: OrderLine[];
+  /** Set for collection orders — swaps courier/tracking copy for in-store pickup details. */
+  collection?: CollectionPoint;
 }): Promise<{ sent: boolean; error?: string }> {
+  const collection = input.collection;
   const trackLink = `${site.url}/track?order=${encodeURIComponent(input.orderNumber)}`;
-  const trackHref = input.trackingUrl ?? trackLink;
-  const statusLine = STATUS_COPY[input.status] ?? `is now ${input.status}`;
-  const courierLine = [
-    input.carrier ? `Carrier: ${input.carrier}` : "",
-    input.trackingNumber ? `Tracking number: ${input.trackingNumber}` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  const badge = STATUS_BADGE[input.status] ?? { bg: COLORS.cream, fg: COLORS.ink, label: input.status };
+  const trackHref = (!collection && input.trackingUrl) || trackLink;
+  const statusLine =
+    (collection ? COLLECTION_STATUS_COPY[input.status] : STATUS_COPY[input.status]) ??
+    `is now ${input.status}`;
+  const courierLine = collection
+    ? ""
+    : [
+        input.carrier ? `Carrier: ${input.carrier}` : "",
+        input.trackingNumber ? `Tracking number: ${input.trackingNumber}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+  const baseBadge = STATUS_BADGE[input.status] ?? { bg: COLORS.cream, fg: COLORS.ink, label: input.status };
+  const badge = collection
+    ? {
+        ...baseBadge,
+        label:
+          input.status === "packed"
+            ? "Ready to collect"
+            : input.status === "delivered"
+              ? "Collected"
+              : baseBadge.label,
+      }
+    : baseBadge;
   const lines = input.lines ?? [];
+  // Pickup details matter until the order's been collected or cancelled.
+  const showPickup = !!collection && ["processing", "packed"].includes(input.status);
+  const pickupHtml = showPickup
+    ? `
+    <div style="margin-top:22px;padding:16px 18px;background:${COLORS.cream};border-radius:8px;border-left:3px solid ${COLORS.navy}">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:${COLORS.muted};margin-bottom:4px">Collect from store</div>
+      <div style="font-size:15px;font-weight:700;color:${COLORS.ink}">${escapeHtml(collection!.address)}</div>
+      <div style="font-size:13.5px;color:${COLORS.ink};margin-top:6px"><strong>Collection hours:</strong> ${escapeHtml(collection!.hours)}</div>
+      <div style="font-size:13px;color:${COLORS.muted};margin-top:8px">${
+        input.status === "packed"
+          ? "Your order is waiting for you. "
+          : "We&rsquo;ll email you again as soon as it&rsquo;s ready — please wait for that before coming in. "
+      }${escapeHtml(collection!.instructions)}</div>
+    </div>`
+    : "";
+  const pickupText = showPickup
+    ? [
+        "",
+        `Collect from store: ${collection!.address}`,
+        `Collection hours: ${collection!.hours}`,
+        collection!.instructions,
+      ].join("\n")
+    : "";
 
   const bodyHtml = `
     <div style="text-align:center;margin-bottom:22px">
@@ -179,20 +228,25 @@ export async function sendTrackingUpdateEmail(input: {
         ? `<p style="margin:8px 0 0;font-size:13.5px;color:${COLORS.muted};text-align:center">${escapeHtml(courierLine)}</p>`
         : ""
     }
+    ${pickupHtml}
     ${
       lines.length > 0
         ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:26px">${productRowsHtml(lines)}</table>`
         : ""
     }
-    ${button("Track your order", trackHref)}
+    ${button(collection ? "View your order" : "Track your order", trackHref)}
   `;
 
   return sendEmail({
     to: input.to,
-    subject: `Order ${input.orderNumber} update — ${site.name}`,
+    subject:
+      collection && input.status === "packed"
+        ? `Order ${input.orderNumber} is ready to collect — ${site.name}`
+        : `Order ${input.orderNumber} update — ${site.name}`,
     text: [
       `Your order ${input.orderNumber} ${statusLine}.`,
       courierLine,
+      pickupText,
       lines.length > 0
         ? [
             "",
@@ -200,7 +254,7 @@ export async function sendTrackingUpdateEmail(input: {
             ...lines.map((l) => `${l.quantity} × ${l.name} (${l.colourLabel} / ${l.size})`),
           ].join("\n")
         : "",
-      `Track your order: ${trackHref}`,
+      `${collection ? "View" : "Track"} your order: ${trackHref}`,
     ]
       .filter(Boolean)
       .join("\n"),

@@ -42,8 +42,8 @@ export function ProductInfo({ product }: { product: Product }) {
         <AccordionContent className="flex flex-col gap-2 text-sm text-muted-foreground">
           <p>
             UK delivery via Royal Mail: standard £3.00, free on orders over £100
-            (Tracked 48, 2–5 working days) or express £9.00 (Tracked 24, 1–3 working days). Collect from
-            our studio for free.
+            (Tracked 48, 2–5 working days) or express £9.00 (Tracked 24, 1–3 working days). Or collect
+            for free from our store at 13 Skipsea Road, Sheffield S2 1BT.
           </p>
           <p>
             {RETURN_WINDOW_DAYS}-day returns on unworn items with tags attached.

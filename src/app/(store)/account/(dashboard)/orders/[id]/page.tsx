@@ -3,13 +3,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { notFound, useParams } from "next/navigation";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, StoreIcon, TruckIcon } from "lucide-react";
 import { useAuth } from "@/lib/store/auth";
 import { useCustomerOrder } from "@/lib/firebase/orders";
 import { Badge } from "@/components/ui/badge";
 import { CartSummary } from "@/components/cart/cart-summary";
 import { DeliveryProgress } from "@/components/common/delivery-progress";
 import { formatDate, formatPrice } from "@/lib/format";
+import { collectionPointFor, isCollectionOrder, orderStatusLabel } from "@/lib/delivery";
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,9 @@ export default function OrderDetailPage() {
 
   if (isPending) return null;
   if (!order) notFound();
+  const collecting = isCollectionOrder(order);
+  const point = collecting ? collectionPointFor(order) : null;
+  const address = order.shippingAddress;
 
   return (
     <div className="flex flex-col gap-6">
@@ -36,9 +40,7 @@ export default function OrderDetailPage() {
             Placed {formatDate(order.placedAt)}
           </p>
         </div>
-        <Badge variant="outline" className="capitalize">
-          {order.status}
-        </Badge>
+        <Badge variant="outline">{orderStatusLabel(order.status, collecting)}</Badge>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-5">
@@ -48,6 +50,7 @@ export default function OrderDetailPage() {
           trackingNumber={order.trackingNumber}
           trackingUrl={order.trackingUrl}
           timeline={order.timeline}
+          collection={point}
         />
       </div>
 
@@ -76,23 +79,48 @@ export default function OrderDetailPage() {
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-5 text-sm">
-          <p className="mb-2 font-medium">Delivery address</p>
-          <address className="not-italic text-muted-foreground">
-            {order.shippingAddress.firstName} {order.shippingAddress.lastName}
-            <br />
-            {order.shippingAddress.line1}
-            <br />
-            {order.shippingAddress.line2 && (
-              <>
-                {order.shippingAddress.line2}
+          <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
+            Delivery method
+          </p>
+          <p className="mb-3 flex items-center gap-2 font-semibold">
+            {collecting ? <StoreIcon className="size-4" /> : <TruckIcon className="size-4" />}
+            {order.shippingMethod}
+          </p>
+          {point ? (
+            <>
+              <p className="mb-1 font-medium">Collect from</p>
+              <address className="not-italic text-muted-foreground">
+                {point.address}
                 <br />
-              </>
-            )}
-            {order.shippingAddress.city}, {order.shippingAddress.postcode}
-            <br />
-            {order.shippingAddress.country}
-          </address>
-          <p className="mt-3 text-muted-foreground">{order.shippingMethod}</p>
+                Collection hours: {point.hours}
+              </address>
+              {order.collectionContact && (
+                <p className="mt-3 text-muted-foreground">
+                  Collecting: {order.collectionContact.firstName}{" "}
+                  {order.collectionContact.lastName} · {order.collectionContact.phone}
+                </p>
+              )}
+            </>
+          ) : address ? (
+            <>
+              <p className="mb-1 font-medium">Delivery address</p>
+              <address className="not-italic text-muted-foreground">
+                {address.firstName} {address.lastName}
+                <br />
+                {address.line1}
+                <br />
+                {address.line2 && (
+                  <>
+                    {address.line2}
+                    <br />
+                  </>
+                )}
+                {address.city}, {address.postcode}
+                <br />
+                {address.country}
+              </address>
+            </>
+          ) : null}
         </div>
         <div className="rounded-xl border border-border bg-card p-5">
           <CartSummary

@@ -13,7 +13,11 @@ export const faqGroups: FaqGroup[] = [
       },
       {
         q: "Is delivery free?",
-        a: "Standard delivery is free on orders over £100 (after any discount code); below that it's £3.00. Express is £9.00 on every order. Collecting from our studio at Peckham Levels is always free.",
+        a: "Standard delivery is free on orders over £100 (after any discount code); below that it's £3.00. Express is £9.00 on every order. Collecting from our store at 13 Skipsea Road, Sheffield S2 1BT is always free.",
+      },
+      {
+        q: "How does collect from store work?",
+        a: "Choose \"Collect from store\" at checkout — no delivery address needed, just your name, email and phone number. We'll email you when your order is ready, then pick it up from 13 Skipsea Road, Sheffield S2 1BT (Mon–Sat, 10am–6pm). Please bring your order confirmation email as proof of purchase.",
       },
       {
         q: "Do you ship internationally?",

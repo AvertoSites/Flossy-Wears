@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { XIcon } from "lucide-react";
 
 const MESSAGES = [
-  "Free UK delivery on orders over £100 · free collection from our studio",
+  "Free UK delivery on orders over £100 · free collection from our Sheffield store",
   "The Four — the October 2026 drop is live",
   "30-day returns · Faith you can wear",
 ];

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { orderStatusLabel } from "@/lib/delivery";
 import type { OrderStatus, PaymentStatus } from "@/types";
 
 const ORDER_STYLES: Record<OrderStatus, string> = {
@@ -17,10 +18,17 @@ const PAYMENT_STYLES: Record<PaymentStatus, string> = {
   partially_refunded: "bg-orange-100 text-orange-900 border-orange-200",
 };
 
-export function OrderStatusBadge({ status }: { status: OrderStatus }) {
+export function OrderStatusBadge({
+  status,
+  collection = false,
+}: {
+  status: OrderStatus;
+  /** Collection orders read "Ready for collection" / "Collected" instead of packed/delivered. */
+  collection?: boolean;
+}) {
   return (
-    <Badge variant="outline" className={cn("capitalize", ORDER_STYLES[status])}>
-      {status}
+    <Badge variant="outline" className={ORDER_STYLES[status]}>
+      {orderStatusLabel(status, collection)}
     </Badge>
   );
 }

@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 import { formatDate, formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { isCollectionOrder } from "@/lib/delivery";
 
 const FILTERS = [
   { value: "all", label: "All" },
@@ -126,6 +127,11 @@ export default function AdminOrdersPage() {
                       Custom
                     </span>
                   )}
+                  {isCollectionOrder(order) && (
+                    <span className="ml-1.5 rounded-full bg-[#1e3a5f] px-1.5 py-0.5 text-[0.65rem] font-semibold text-white">
+                      Collection
+                    </span>
+                  )}
                 </Td>
                 <Td className="whitespace-nowrap text-muted-foreground">
                   {formatDate(order.placedAt)}
@@ -141,7 +147,7 @@ export default function AdminOrdersPage() {
                   <PaymentStatusBadge status={order.paymentStatus ?? "paid"} />
                 </Td>
                 <Td>
-                  <OrderStatusBadge status={order.status} />
+                  <OrderStatusBadge status={order.status} collection={isCollectionOrder(order)} />
                 </Td>
               </tr>
             ))

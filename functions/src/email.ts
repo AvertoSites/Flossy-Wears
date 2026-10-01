@@ -1,6 +1,7 @@
 import { defineSecret, defineString } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
-import type { OrderLine } from "./types";
+import { COLLECTION_POINT, isCollectionOrder } from "./collection";
+import type { CollectionContact, CollectionPoint, DeliveryType, OrderLine } from "./types";
 
 export const resendApiKey = defineSecret("RESEND_API_KEY");
 /** resend.dev only delivers to the Resend account's own email — set this once a sending domain is verified. */
@@ -20,7 +21,7 @@ const SITE = {
   // TODO: switch back to https://flossywears.co.uk once that's the live domain.
   url: "https://flossy-wears.netlify.app",
   email: "flossywears@gmail.com",
-  phone: "+44 20 7946 0958",
+  phone: "+44 7935 828743",
 };
 
 // Matches src/app/globals.css `--brand-*` tokens — duplicated for the same
@@ -84,6 +85,32 @@ function productRowsHtml(lines: OrderLine[]): string {
     })
     .join("");
 }
+
+/** Bold "how this order reaches the customer" banner shown near the top of every order email. */
+function methodBannerHtml(label: string, collecting: boolean): string {
+  return `
+    <div style="margin:0 0 22px;padding:12px 16px;border:1.5px solid ${COLORS.navy};border-radius:8px;background:${collecting ? COLORS.cream : COLORS.paper}">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:${COLORS.muted};margin-bottom:2px">Delivery method</div>
+      <div style="font-size:16px;font-weight:700;color:${COLORS.navy}">${escapeHtml(label)}${collecting ? " — no delivery" : ""}</div>
+    </div>`;
+}
+
+type OrderDelivery = {
+  shippingMethod: string;
+  deliveryType?: DeliveryType;
+  shippingAddress?: {
+    firstName?: string;
+    lastName?: string;
+    line1: string;
+    line2?: string;
+    city: string;
+    county?: string;
+    postcode: string;
+    phone?: string;
+  };
+  collectionPoint?: CollectionPoint;
+  collectionContact?: CollectionContact;
+};
 
 function emailShell(opts: { previewText: string; bodyHtml: string }): string {
   return `<!DOCTYPE html>
@@ -153,14 +180,7 @@ export async function sendOrderConfirmationEmail(order: {
   shipping: number;
   discount: number;
   total: number;
-  shippingMethod: string;
-  shippingAddress: {
-    line1: string;
-    line2?: string;
-    city: string;
-    postcode: string;
-  };
-}) {
+} & OrderDelivery) {
   const itemRows = order.lines
     .map((l) => {
       const base = `${l.quantity} × ${l.name} (${l.colourLabel} / ${l.size}) — ${formatPrice(l.price * l.quantity)}`;
@@ -169,29 +189,44 @@ export async function sendOrderConfirmationEmail(order: {
       return `${base}\n  Custom print: "${l.customVerse.text}" — ${l.customVerse.reference}${noteLine}`;
     })
     .join("\n");
-  const addressLine = [order.shippingAddress.line1, order.shippingAddress.line2, order.shippingAddress.city, order.shippingAddress.postcode]
-    .filter(Boolean)
-    .join(", ");
+  const collecting = isCollectionOrder(order);
+  const point = order.collectionPoint ?? COLLECTION_POINT;
+  const contact = order.collectionContact;
+  const a = order.shippingAddress;
+  const addressLine = a ? [a.line1, a.line2, a.city, a.postcode].filter(Boolean).join(", ") : "";
   const orderUrl = `${SITE.url}/account/orders/${order.number}`;
+
+  const fulfilmentBoxHtml = collecting
+    ? `
+    <div style="margin-top:20px;padding:16px 18px;background:${COLORS.cream};border-radius:8px;border-left:3px solid ${COLORS.navy}">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:${COLORS.muted};margin-bottom:4px">Collect your order from</div>
+      <div style="font-size:15px;font-weight:700;color:${COLORS.ink}">${escapeHtml(point.address)}</div>
+      <div style="font-size:13.5px;color:${COLORS.ink};margin-top:6px"><strong>Collection hours:</strong> ${escapeHtml(point.hours)}</div>
+      <div style="font-size:13px;color:${COLORS.muted};margin-top:8px">We&rsquo;ll email you as soon as your order is ready — please wait for that email before coming in. ${escapeHtml(point.instructions)}</div>
+      ${contact ? `<div style="font-size:13px;color:${COLORS.muted};margin-top:8px">Collecting: ${escapeHtml(`${contact.firstName} ${contact.lastName}`)} · ${escapeHtml(contact.phone)}</div>` : ""}
+    </div>`
+    : `
+    <div style="margin-top:20px;padding:14px 16px;background:${COLORS.cream};border-radius:8px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:${COLORS.muted};margin-bottom:4px">Delivering to</div>
+      <div style="font-size:13.5px;color:${COLORS.ink}">${escapeHtml(addressLine)}</div>
+    </div>`;
 
   const bodyHtml = `
     <h1 style="margin:0 0 6px;font-size:21px;color:${COLORS.ink}">Thanks for your order, ${escapeHtml(order.customerName)}</h1>
-    <p style="margin:0 0 24px;font-size:14px;color:${COLORS.muted}">Order <strong style="color:${COLORS.ink}">${order.number}</strong> is confirmed and paid.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:${COLORS.muted}">Order <strong style="color:${COLORS.ink}">${order.number}</strong> is confirmed and paid.</p>
+    ${methodBannerHtml(order.shippingMethod, collecting)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${productRowsHtml(order.lines)}</table>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;font-size:13.5px;color:${COLORS.muted}">
       <tr><td style="padding:3px 0">Subtotal</td><td style="padding:3px 0;text-align:right">${formatPrice(order.subtotal)}</td></tr>
       ${order.discount > 0 ? `<tr><td style="padding:3px 0">Discount</td><td style="padding:3px 0;text-align:right;color:${COLORS.green}">-${formatPrice(order.discount)}</td></tr>` : ""}
-      <tr><td style="padding:3px 0">Delivery (${escapeHtml(order.shippingMethod)})</td><td style="padding:3px 0;text-align:right">${order.shipping === 0 ? "Free" : formatPrice(order.shipping)}</td></tr>
+      <tr><td style="padding:3px 0">${collecting ? "Collect from store" : `Delivery (${escapeHtml(order.shippingMethod)})`}</td><td style="padding:3px 0;text-align:right">${order.shipping === 0 ? "Free" : formatPrice(order.shipping)}</td></tr>
       <tr>
         <td style="padding:10px 0 0;border-top:1px solid ${COLORS.border};font-weight:700;color:${COLORS.ink};font-size:15px">Total paid</td>
         <td style="padding:10px 0 0;border-top:1px solid ${COLORS.border};text-align:right;font-weight:700;color:${COLORS.ink};font-size:15px">${formatPrice(order.total)}</td>
       </tr>
     </table>
-    <div style="margin-top:20px;padding:14px 16px;background:${COLORS.cream};border-radius:8px">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:${COLORS.muted};margin-bottom:4px">Delivering to</div>
-      <div style="font-size:13.5px;color:${COLORS.ink}">${escapeHtml(addressLine)}</div>
-    </div>
-    ${button("Track your order", orderUrl)}
+    ${fulfilmentBoxHtml}
+    ${button(collecting ? "View your order" : "Track your order", orderUrl)}
   `;
 
   await sendEmail({
@@ -201,24 +236,36 @@ export async function sendOrderConfirmationEmail(order: {
       `Thanks for your order, ${order.customerName}!`,
       `Order ${order.number} is confirmed and paid.`,
       "",
+      `DELIVERY METHOD: ${order.shippingMethod.toUpperCase()}${collecting ? " (no delivery)" : ""}`,
+      "",
       "Items:",
       itemRows,
       "",
       `Subtotal: ${formatPrice(order.subtotal)}`,
       order.discount > 0 ? `Discount: -${formatPrice(order.discount)}` : "",
-      `Delivery (${order.shippingMethod}): ${order.shipping === 0 ? "Free" : formatPrice(order.shipping)}`,
+      `${collecting ? "Collect from store" : `Delivery (${order.shippingMethod})`}: ${order.shipping === 0 ? "Free" : formatPrice(order.shipping)}`,
       `Total paid: ${formatPrice(order.total)}`,
       "",
-      `Delivering to: ${addressLine}`,
+      ...(collecting
+        ? [
+            `Collect your order from: ${point.address}`,
+            `Collection hours: ${point.hours}`,
+            "We'll email you as soon as your order is ready — please wait for that email before coming in.",
+            point.instructions,
+            contact ? `Collecting: ${contact.firstName} ${contact.lastName} · ${contact.phone}` : "",
+          ]
+        : [`Delivering to: ${addressLine}`]),
       "",
-      `Track your order: ${orderUrl}`,
+      `${collecting ? "View" : "Track"} your order: ${orderUrl}`,
       "",
       `Questions? Reach us at ${SITE.email} or ${SITE.phone}.`,
     ]
       .filter((l) => l !== "")
       .join("\n"),
     html: emailShell({
-      previewText: `Order ${order.number} is confirmed — ${formatPrice(order.total)} paid.`,
+      previewText: collecting
+        ? `Order ${order.number} is confirmed — collect from ${point.address}.`
+        : `Order ${order.number} is confirmed — ${formatPrice(order.total)} paid.`,
       bodyHtml,
     }),
   });
@@ -235,18 +282,7 @@ export async function sendNewOrderAdminEmail(order: {
   customerName: string;
   lines: OrderLine[];
   total: number;
-  shippingMethod: string;
-  shippingAddress: {
-    firstName?: string;
-    lastName?: string;
-    line1: string;
-    line2?: string;
-    city: string;
-    county?: string;
-    postcode: string;
-    phone?: string;
-  };
-}) {
+} & OrderDelivery) {
   const recipients = adminNotifyEmail
     .value()
     .split(",")
@@ -254,36 +290,47 @@ export async function sendNewOrderAdminEmail(order: {
     .filter(Boolean);
   if (!recipients.length) return;
 
+  const collecting = isCollectionOrder(order);
   const a = order.shippingAddress;
-  const recipientName = [a.firstName, a.lastName].filter(Boolean).join(" ");
-  const addressLines = [recipientName, a.line1, a.line2, a.city, a.county, a.postcode].filter(
-    (l): l is string => !!l,
-  );
+  const c = order.collectionContact;
+  // Collection: who's coming in. Delivery: where to post it.
+  const contactLines = (
+    collecting
+      ? [c ? `${c.firstName} ${c.lastName}` : order.customerName, c?.email ?? order.customerEmail]
+      : a
+        ? [[a.firstName, a.lastName].filter(Boolean).join(" "), a.line1, a.line2, a.city, a.county, a.postcode]
+        : []
+  ).filter((l): l is string => !!l);
+  const contactPhone = collecting ? c?.phone : a?.phone;
+  const boxTitle = collecting ? "Customer will collect in store — do not post" : "Ship to";
   const itemCount = order.lines.reduce((n, l) => n + l.quantity, 0);
   const adminUrl = `${SITE.url}/admin/orders/${encodeURIComponent(order.id)}`;
   const hasCustom = order.lines.some((l) => l.customVerse);
 
   const bodyHtml = `
-    <h1 style="margin:0 0 6px;font-size:21px;color:${COLORS.ink}">New order ${escapeHtml(order.number)}</h1>
+    <h1 style="margin:0 0 6px;font-size:21px;color:${COLORS.ink}">New ${collecting ? "collection " : ""}order ${escapeHtml(order.number)}</h1>
     <p style="margin:0 0 24px;font-size:14px;color:${COLORS.muted}">
       ${escapeHtml(order.customerName)} (${escapeHtml(order.customerEmail)}) paid <strong style="color:${COLORS.ink}">${formatPrice(order.total)}</strong>
       for ${itemCount} item${itemCount === 1 ? "" : "s"} — ${escapeHtml(order.shippingMethod)}.
       ${hasCustom ? `<br /><strong style="color:${COLORS.ink}">Includes a custom print.</strong>` : ""}
     </p>
+    ${methodBannerHtml(order.shippingMethod, collecting)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${productRowsHtml(order.lines)}</table>
     <div style="margin-top:20px;padding:14px 16px;background:${COLORS.cream};border-radius:8px">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:${COLORS.muted};margin-bottom:4px">Ship to</div>
-      <div style="font-size:13.5px;color:${COLORS.ink}">${addressLines.map(escapeHtml).join("<br />")}</div>
-      ${a.phone ? `<div style="font-size:13px;color:${COLORS.muted};margin-top:4px">${escapeHtml(a.phone)}</div>` : ""}
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:${COLORS.muted};margin-bottom:4px">${boxTitle}</div>
+      <div style="font-size:13.5px;color:${COLORS.ink}">${contactLines.map(escapeHtml).join("<br />")}</div>
+      ${contactPhone ? `<div style="font-size:13px;color:${COLORS.muted};margin-top:4px">${escapeHtml(contactPhone)}</div>` : ""}
+      ${collecting ? `<div style="font-size:12.5px;color:${COLORS.muted};margin-top:8px">Set the order to &ldquo;Ready for collection&rdquo; in the dashboard when it&rsquo;s ready — that emails the customer to come in.</div>` : ""}
     </div>
     ${button("View order in dashboard", adminUrl)}
   `;
 
   await sendEmail({
     to: recipients,
-    subject: `New order ${order.number} — ${formatPrice(order.total)} from ${order.customerName}`,
+    subject: `${collecting ? "[COLLECTION] " : ""}New order ${order.number} — ${formatPrice(order.total)} from ${order.customerName}`,
     text: [
-      `New order ${order.number}`,
+      `New ${collecting ? "collection " : ""}order ${order.number}`,
+      `DELIVERY METHOD: ${order.shippingMethod.toUpperCase()}${collecting ? " (no delivery)" : ""}`,
       `${order.customerName} (${order.customerEmail}) paid ${formatPrice(order.total)} — ${order.shippingMethod}.`,
       "",
       "Items:",
@@ -294,9 +341,9 @@ export async function sendNewOrderAdminEmail(order: {
           : base;
       }),
       "",
-      "Ship to:",
-      ...addressLines,
-      a.phone ?? "",
+      `${boxTitle}:`,
+      ...contactLines,
+      contactPhone ?? "",
       "",
       `View in the admin dashboard: ${adminUrl}`,
     ].join("\n"),

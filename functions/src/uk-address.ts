@@ -42,3 +42,11 @@ export function assertUkDeliveryAddress(address: Address): void {
     );
   }
 }
+
+/** Mirror of `isValidUkPhone` in `src/lib/validations/uk-address.ts`. */
+export function assertUkPhone(phone: string): void {
+  const compact = phone.replace(/\(0\)/g, "").replace(/[\s()-]/g, "");
+  if (!/^(?:0|\+44|0044)[1-9]\d{8,9}$/.test(compact)) {
+    throw new HttpsError("invalid-argument", "Enter a valid UK phone number for collection.");
+  }
+}

@@ -55,7 +55,15 @@ export type ShippingMethod = {
   estimate: string;
   /** Pence. When the order's item total after discounts reaches this, the method is free. */
   freeOverPence?: number;
+  /** "collection" = picked up in store, no delivery address. Older settings docs only mark it by the `collection` id. */
+  type?: DeliveryType;
 };
+
+export type DeliveryType = "delivery" | "collection";
+
+export type CollectionPoint = { address: string; hours: string; instructions: string };
+
+export type CollectionContact = { firstName: string; lastName: string; email: string; phone: string };
 
 export type StoreSettings = {
   storeName: string;

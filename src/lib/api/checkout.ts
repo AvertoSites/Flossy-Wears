@@ -15,7 +15,10 @@ export type CheckoutLine = Pick<
 export type CreateCheckoutSessionInput = {
   lines: CheckoutLine[];
   shippingMethodId: string;
-  addressId: string;
+  /** Required for delivery methods; ignored for collection. */
+  addressId?: string | null;
+  /** Required for collection — who's picking the order up. Email comes from the account. */
+  collectionContact?: { firstName: string; lastName: string; phone: string } | null;
   discountCode?: string | null;
 };
 

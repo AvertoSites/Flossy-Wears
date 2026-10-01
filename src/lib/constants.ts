@@ -38,7 +38,8 @@ export const DEFAULT_GARMENT_WEIGHT_GRAMS = 300;
 /**
  * Delivery options — all via Royal Mail, UK only. Standard delivery is free
  * once the order's item total after discounts reaches `freeOverPence` (£100);
- * express is always charged; collecting from the studio is always free.
+ * express is always charged; collecting from the store (13 Skipsea Road,
+ * Sheffield) is always free and needs no delivery address.
  * Prices are in pence and flat for
  * now (one band up to 20kg, Royal Mail's parcel limit). Split a band here —
  * or in Admin → Settings — to price by weight later.
@@ -65,8 +66,9 @@ export const SHIPPING_METHODS: ShippingMethod[] = [
   {
     id: "collection",
     label: "Collect from store",
-    description: "Collect from Peckham Levels, London",
-    estimate: "",
+    description: "13 Skipsea Road, Sheffield S2 1BT",
+    estimate: "Mon–Sat, 10am–6pm · we'll email you when it's ready",
+    type: "collection",
     bands: [{ maxWeightGrams: 1_000_000, price: 0 }],
   },
 ];

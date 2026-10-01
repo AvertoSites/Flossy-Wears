@@ -1,15 +1,21 @@
 "use client";
 
-import { CheckIcon, TruckIcon } from "lucide-react";
+import { CheckIcon, StoreIcon, TruckIcon } from "lucide-react";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { OrderEvent, OrderStatus } from "@/types";
+import type { CollectionPoint, OrderEvent, OrderStatus } from "@/types";
 
 const STEPS: { key: OrderStatus; label: string }[] = [
   { key: "processing", label: "Order placed" },
   { key: "packed", label: "Packed" },
   { key: "shipped", label: "Shipped" },
   { key: "delivered", label: "Delivered" },
+];
+
+const COLLECTION_STEPS: { key: OrderStatus; label: string }[] = [
+  { key: "processing", label: "Order placed" },
+  { key: "packed", label: "Ready for collection" },
+  { key: "delivered", label: "Collected" },
 ];
 
 /** The delivery-progress stepper + courier link + event timeline — shared by the public /track page and a signed-in customer's own order detail page. */
@@ -19,16 +25,20 @@ export function DeliveryProgress({
   trackingNumber,
   trackingUrl,
   timeline,
+  collection,
 }: {
   status: OrderStatus;
   carrier?: string | null;
   trackingNumber?: string | null;
   trackingUrl?: string | null;
   timeline?: OrderEvent[];
+  /** Set for collection orders — swaps the shipping stepper for pickup steps and details. */
+  collection?: CollectionPoint | null;
 }) {
+  const steps = collection ? COLLECTION_STEPS : STEPS;
   const activeStep = Math.max(
     0,
-    STEPS.findIndex((s) => s.key === status),
+    steps.findIndex((s) => s.key === status),
   );
   const cancelled = status === "cancelled";
 
@@ -36,7 +46,7 @@ export function DeliveryProgress({
     <div className="flex flex-col gap-6">
       {!cancelled && (
         <div className="flex items-center">
-          {STEPS.map((step, i) => {
+          {steps.map((step, i) => {
             const done = i <= activeStep;
             return (
               <div key={step.key} className="flex flex-1 items-center last:flex-none">
@@ -60,7 +70,7 @@ export function DeliveryProgress({
                     {step.label}
                   </span>
                 </div>
-                {i < STEPS.length - 1 && (
+                {i < steps.length - 1 && (
                   <div
                     className={cn(
                       "mx-2 h-0.5 flex-1",
@@ -74,7 +84,23 @@ export function DeliveryProgress({
         </div>
       )}
 
-      {trackingNumber && (
+      {collection && !cancelled && status !== "delivered" && (
+        <div className="flex gap-3 rounded-lg bg-cream/60 p-4 text-sm">
+          <StoreIcon className="mt-0.5 size-4 shrink-0" />
+          <div className="flex flex-col gap-1">
+            <p className="font-semibold">Collect from store — {collection.address}</p>
+            <p className="text-muted-foreground">Collection hours: {collection.hours}</p>
+            <p className="text-muted-foreground">
+              {status === "packed"
+                ? "Your order is ready — come and collect it. "
+                : "We’ll email you when it’s ready to collect. "}
+              {collection.instructions}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!collection && trackingNumber && (
         <div className="flex flex-col gap-2 rounded-lg bg-cream/60 p-4">
           <p className="flex items-center gap-2 text-sm font-medium">
             <TruckIcon className="size-4" />

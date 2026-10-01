@@ -4,7 +4,7 @@ import { logger } from "firebase-functions/v2";
 import { db } from "./admin";
 import { getStripe, stripeSecretKey } from "./stripe";
 import { resendApiKey, sendNewOrderAdminEmail, sendOrderConfirmationEmail } from "./email";
-import type { Address, OrderLine, Product } from "./types";
+import type { Address, CollectionContact, CollectionPoint, DeliveryType, OrderLine, Product } from "./types";
 
 /**
  * The one place an order is ever marked paid. Follows Stripe's documented
@@ -97,7 +97,10 @@ export async function fulfillCheckoutSession(sessionId: string): Promise<void> {
     discount: order.discount,
     total: order.total,
     shippingMethod: order.shippingMethod,
-    shippingAddress: order.shippingAddress as Address,
+    deliveryType: order.deliveryType as DeliveryType | undefined,
+    shippingAddress: order.shippingAddress as Address | undefined,
+    collectionPoint: order.collectionPoint as CollectionPoint | undefined,
+    collectionContact: order.collectionContact as CollectionContact | undefined,
   });
 
   await sendNewOrderAdminEmail({
@@ -108,7 +111,10 @@ export async function fulfillCheckoutSession(sessionId: string): Promise<void> {
     lines,
     total: order.total,
     shippingMethod: order.shippingMethod,
-    shippingAddress: order.shippingAddress as Address,
+    deliveryType: order.deliveryType as DeliveryType | undefined,
+    shippingAddress: order.shippingAddress as Address | undefined,
+    collectionPoint: order.collectionPoint as CollectionPoint | undefined,
+    collectionContact: order.collectionContact as CollectionContact | undefined,
   });
 
   logger.info(`Fulfilled order for session ${sessionId}`);

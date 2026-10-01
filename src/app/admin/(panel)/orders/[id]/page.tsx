@@ -11,6 +11,9 @@ import {
   CreditCardIcon,
   ExternalLinkIcon,
   MapPinIcon,
+  PhoneIcon,
+  StoreIcon,
+  TruckIcon,
 } from "lucide-react";
 import { adminApi } from "@/lib/admin/client";
 import { refundOrder } from "@/lib/firebase/functions";
@@ -34,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatPrice } from "@/lib/format";
+import { collectionPointFor, isCollectionOrder, orderStatusLabel } from "@/lib/delivery";
 import type { OrderStatus } from "@/types";
 
 const STATUSES: OrderStatus[] = [
@@ -144,6 +148,14 @@ export default function AdminOrderDetailPage() {
     );
   }
 
+  const collecting = isCollectionOrder(order);
+  const point = collecting ? collectionPointFor(order) : null;
+  const contact = order.collectionContact;
+  const address = order.shippingAddress;
+  // Collection orders never ship — keep "shipped" only if a legacy order is already on it.
+  const statusOptions = collecting
+    ? STATUSES.filter((s) => s !== "shipped" || order.status === "shipped")
+    : STATUSES;
   const refundable = order.total - (order.refundedAmount ?? 0);
   const dirty =
     status !== order.status ||
@@ -160,7 +172,7 @@ export default function AdminOrderDetailPage() {
         backLabel="Orders"
         actions={
           <>
-            <OrderStatusBadge status={order.status} />
+            <OrderStatusBadge status={order.status} collection={collecting} />
             <PaymentStatusBadge status={order.paymentStatus ?? "paid"} />
           </>
         }
@@ -168,7 +180,37 @@ export default function AdminOrderDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-6">
-          <Card title="Fulfillment & tracking">
+          <div
+            className={
+              collecting
+                ? "flex items-start gap-3 rounded-xl border-2 border-[#1e3a5f] bg-[#f1eadb] p-4"
+                : "flex items-start gap-3 rounded-xl border border-black/10 bg-white p-4"
+            }
+          >
+            {collecting ? (
+              <StoreIcon className="mt-0.5 size-5 shrink-0 text-[#1e3a5f]" />
+            ) : (
+              <TruckIcon className="mt-0.5 size-5 shrink-0 text-[#1e3a5f]" />
+            )}
+            <div className="text-sm">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Delivery method
+              </p>
+              <p className="text-base font-bold text-[#1e3a5f]">
+                {order.shippingMethod}
+                {collecting && " — do not post"}
+              </p>
+              {point && (
+                <p className="mt-1 text-muted-foreground">
+                  Customer collects from {point.address} ({point.hours}). Set the status to
+                  &ldquo;Ready for collection&rdquo; when it&rsquo;s packed — that emails the
+                  customer to come in.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <Card title={collecting ? "Collection status" : "Fulfillment & tracking"}>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label>Status</Label>
@@ -176,55 +218,59 @@ export default function AdminOrderDetailPage() {
                   value={status}
                   onValueChange={(v) => setStatus(v as OrderStatus)}
                 >
-                  <SelectTrigger className="capitalize">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {STATUSES.map((s) => (
-                      <SelectItem key={s} value={s} className="capitalize">
-                        {s}
+                    {statusOptions.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {orderStatusLabel(s, collecting)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Carrier</Label>
-                <Select
-                  value={carrier || "none"}
-                  onValueChange={(v) => setCarrier(v === "none" ? "" : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select carrier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No carrier</SelectItem>
-                    {CARRIERS.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="tn">Tracking number</Label>
-                <Input
-                  id="tn"
-                  value={trackingNumber}
-                  onChange={(e) => setTrackingNumber(e.target.value)}
-                  placeholder="e.g. RM123456789GB"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="tu">Tracking URL</Label>
-                <Input
-                  id="tu"
-                  value={trackingUrl}
-                  onChange={(e) => setTrackingUrl(e.target.value)}
-                  placeholder="https://…"
-                />
-              </div>
+              {!collecting && (
+                <>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Carrier</Label>
+                    <Select
+                      value={carrier || "none"}
+                      onValueChange={(v) => setCarrier(v === "none" ? "" : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select carrier" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No carrier</SelectItem>
+                        {CARRIERS.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="tn">Tracking number</Label>
+                    <Input
+                      id="tn"
+                      value={trackingNumber}
+                      onChange={(e) => setTrackingNumber(e.target.value)}
+                      placeholder="e.g. RM123456789GB"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="tu">Tracking URL</Label>
+                    <Input
+                      id="tu"
+                      value={trackingUrl}
+                      onChange={(e) => setTrackingUrl(e.target.value)}
+                      placeholder="https://…"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <label className="mt-4 flex items-center gap-2 text-sm">
@@ -233,11 +279,12 @@ export default function AdminOrderDetailPage() {
                 onCheckedChange={(c) => setNotify(!!c)}
               />
               <BellIcon className="size-4 text-muted-foreground" />
-              Email the customer a tracking update
+              Email the customer {collecting ? "a status update" : "a tracking update"}
             </label>
             <p className="mt-1 text-xs text-muted-foreground">
-              Shipped, delivered, and cancelled always email the customer,
-              whether or not this is checked.
+              {collecting
+                ? "Ready for collection, collected, and cancelled always email the customer, whether or not this is checked."
+                : "Shipped, delivered, and cancelled always email the customer, whether or not this is checked."}
             </p>
 
             <div className="mt-4 flex items-center gap-2">
@@ -254,7 +301,7 @@ export default function AdminOrderDetailPage() {
               >
                 Preview customer view ↗
               </Link>
-              {carrier === "Royal Mail" && trackingNumber && (
+              {!collecting && carrier === "Royal Mail" && trackingNumber && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -310,7 +357,7 @@ export default function AdminOrderDetailPage() {
                 <Row label="Discount" value={`−${formatPrice(order.discount)}`} />
               )}
               <Row
-                label="Delivery"
+                label={collecting ? "Collect from store" : "Delivery"}
                 value={order.shipping === 0 ? "Free" : formatPrice(order.shipping)}
               />
               {(order.refundedAmount ?? 0) > 0 && (
@@ -374,24 +421,54 @@ export default function AdminOrderDetailPage() {
             >
               View customer →
             </Link>
-            <div className="mt-3 flex gap-2 border-t border-black/10 pt-3 text-sm text-muted-foreground">
-              <MapPinIcon className="mt-0.5 size-4 shrink-0" />
-              <address className="not-italic">
-                {order.shippingAddress.line1}
-                <br />
-                {order.shippingAddress.line2 && (
+            {collecting ? (
+              <div className="mt-3 flex flex-col gap-1.5 border-t border-black/10 pt-3 text-sm">
+                <p className="flex items-center gap-2 font-semibold text-[#1e3a5f]">
+                  <StoreIcon className="size-4" />
+                  Collecting in store
+                </p>
+                {contact ? (
                   <>
-                    {order.shippingAddress.line2}
-                    <br />
+                    <p>
+                      {contact.firstName} {contact.lastName}
+                    </p>
+                    <p className="text-muted-foreground">{contact.email}</p>
+                    <a
+                      href={`tel:${contact.phone}`}
+                      className="inline-flex items-center gap-1.5 text-[#1e3a5f] hover:underline"
+                    >
+                      <PhoneIcon className="size-3.5" />
+                      {contact.phone}
+                    </a>
                   </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Placed before collection contact details were recorded — use the email above.
+                  </p>
                 )}
-                {order.shippingAddress.city}, {order.shippingAddress.postcode}
-                <br />
-                {order.shippingAddress.country}
-                <br />
-                {order.shippingAddress.phone}
-              </address>
-            </div>
+              </div>
+            ) : address ? (
+              <div className="mt-3 flex gap-2 border-t border-black/10 pt-3 text-sm text-muted-foreground">
+                <MapPinIcon className="mt-0.5 size-4 shrink-0" />
+                <address className="not-italic">
+                  {address.firstName} {address.lastName}
+                  <br />
+                  {address.line1}
+                  <br />
+                  {address.line2 && (
+                    <>
+                      {address.line2}
+                      <br />
+                    </>
+                  )}
+                  {address.city}, {address.postcode}
+                  <br />
+                  {address.country}
+                  <br />
+                  {address.phone}
+                </address>
+              </div>
+            ) : null}
           </Card>
 
           <Card title="Payment">

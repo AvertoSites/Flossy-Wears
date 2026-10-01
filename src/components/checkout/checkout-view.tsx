@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckIcon, LockIcon, TagIcon } from "lucide-react";
+import { CheckIcon, LockIcon, StoreIcon, TagIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { OrderSummary } from "@/components/checkout/order-summary";
 import { AddressForm } from "@/components/account/address-form";
 import { EmptyCart } from "@/components/cart/empty-cart";
+import { TextField } from "@/components/common/text-field";
 import { useCart } from "@/lib/store/cart";
 import { useAuth } from "@/lib/store/auth";
 import { useMounted } from "@/lib/hooks/use-mounted";
@@ -17,6 +18,9 @@ import { useAddresses, addressesQueryKey } from "@/lib/firebase/addresses";
 import { useStoreSettings } from "@/lib/queries/use-store-settings";
 import { createCheckoutSession } from "@/lib/firebase/functions";
 import { formatPrice } from "@/lib/format";
+import { isCollectionMethod } from "@/lib/delivery";
+import { site } from "@/lib/data/site";
+import { isValidUkPhone } from "@/lib/validations/uk-address";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -27,7 +31,8 @@ type PromoPreview = { code: string; label: string; discountPence: number };
 export function CheckoutView() {
   const mounted = useMounted();
   const queryClient = useQueryClient();
-  const uid = useAuth((s) => s.user?.uid);
+  const user = useAuth((s) => s.user);
+  const uid = user?.uid;
   const items = useCart((s) => s.items);
   const subtotal = useCart((s) => s.subtotal());
   const discountCode = useCart((s) => s.discountCode);
@@ -42,6 +47,11 @@ export function CheckoutView() {
   const [addingAddress, setAddingAddress] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [shippingMethodId, setShippingMethodId] = useState<string | null>(null);
+  // Collection contact — null until edited, so the account's name pre-fills it.
+  const [contactFirstName, setContactFirstName] = useState<string | null>(null);
+  const [contactLastName, setContactLastName] = useState<string | null>(null);
+  const [contactPhone, setContactPhone] = useState("");
+  const [phoneTouched, setPhoneTouched] = useState(false);
 
   const { data: addresses = [], isPending: addressesPending } = useAddresses(uid);
   const { data: settings } = useStoreSettings();
@@ -62,6 +72,12 @@ export function CheckoutView() {
     return (sorted.find((b) => totalWeightGrams <= b.maxWeightGrams) ?? sorted.at(-1))?.price ?? 0;
   };
   const shippingCost = method ? priceForMethod(method) : 0;
+  const collecting = isCollectionMethod(method);
+  const firstName = (contactFirstName ?? user?.firstName ?? "").trim();
+  const lastName = (contactLastName ?? user?.lastName ?? "").trim();
+  const phoneValid = isValidUkPhone(contactPhone);
+  const contactComplete = !!firstName && !!lastName && phoneValid;
+  const deliveryReady = collecting ? contactComplete : !!activeAddressId;
 
   // A code applied on the cart page carries over via cart state — re-resolve
   // its label/amount here so the summary shows it instead of looking blank.
@@ -110,8 +126,12 @@ export function CheckoutView() {
   }
 
   async function onPay() {
-    if (!activeAddressId) {
-      setError("Add a delivery address to continue.");
+    if (!deliveryReady) {
+      setError(
+        collecting
+          ? "Add your name and a UK phone number for collection."
+          : "Add a delivery address to continue.",
+      );
       return;
     }
     setError(null);
@@ -128,7 +148,9 @@ export function CheckoutView() {
           customVerse: i.customVerse,
         })),
         shippingMethodId: activeMethodId ?? "",
-        addressId: activeAddressId,
+        ...(collecting
+          ? { collectionContact: { firstName, lastName, phone: contactPhone.trim() } }
+          : { addressId: activeAddressId }),
         discountCode,
       });
       window.location.assign(url);
@@ -176,58 +198,6 @@ export function CheckoutView() {
           {step === 0 && (
             <div className="flex flex-col gap-6">
               <section className="flex flex-col gap-4">
-                <h2 className="text-lg font-medium">Delivery address</h2>
-                {addressesPending ? null : addresses.length === 0 && !addingAddress ? (
-                  <p className="text-sm text-muted-foreground">
-                    You don&rsquo;t have a saved address yet.
-                  </p>
-                ) : (
-                  <RadioGroup
-                    value={activeAddressId ?? undefined}
-                    onValueChange={setSelectedAddressId}
-                    className="flex flex-col gap-3"
-                  >
-                    {addresses.map((address) => (
-                      <Label
-                        key={address.id}
-                        htmlFor={address.id}
-                        className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-4 has-[:checked]:border-navy"
-                      >
-                        <RadioGroupItem id={address.id} value={address.id} className="mt-1" />
-                        <span className="text-sm">
-                          <span className="block font-medium">
-                            {address.firstName} {address.lastName}
-                          </span>
-                          <span className="block text-muted-foreground">
-                            {address.line1}
-                            {address.line2 ? `, ${address.line2}` : ""}, {address.city},{" "}
-                            {address.postcode}
-                          </span>
-                        </span>
-                      </Label>
-                    ))}
-                  </RadioGroup>
-                )}
-
-                {addingAddress ? (
-                  <div className="rounded-lg border border-border p-4">
-                    <AddressForm
-                      onSaved={(id) => {
-                        setAddingAddress(false);
-                        setSelectedAddressId(id);
-                        queryClient.invalidateQueries({ queryKey: addressesQueryKey(uid) });
-                      }}
-                      onCancel={() => setAddingAddress(false)}
-                    />
-                  </div>
-                ) : (
-                  <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => setAddingAddress(true)}>
-                    Add a new address
-                  </Button>
-                )}
-              </section>
-
-              <section className="flex flex-col gap-4">
                 <h2 className="text-lg font-medium">Delivery method</h2>
                 <RadioGroup
                   value={activeMethodId ?? undefined}
@@ -244,7 +214,7 @@ export function CheckoutView() {
                       >
                         <span className="flex flex-col gap-1">
                           <span className="text-sm">
-                            {m.label}:{" "}
+                            <span className="font-medium">{m.label}</span>:{" "}
                             <span className="font-semibold">
                               {price === 0 ? "Free" : formatPrice(price)}
                             </span>
@@ -266,12 +236,126 @@ export function CheckoutView() {
                 </RadioGroup>
               </section>
 
+              {!collecting && (
+                <section className="flex flex-col gap-4">
+                  <h2 className="text-lg font-medium">Delivery address</h2>
+                  {addressesPending ? null : addresses.length === 0 && !addingAddress ? (
+                    <p className="text-sm text-muted-foreground">
+                      You don&rsquo;t have a saved address yet.
+                    </p>
+                  ) : (
+                    <RadioGroup
+                      value={activeAddressId ?? undefined}
+                      onValueChange={setSelectedAddressId}
+                      className="flex flex-col gap-3"
+                    >
+                      {addresses.map((address) => (
+                        <Label
+                          key={address.id}
+                          htmlFor={address.id}
+                          className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-4 has-[:checked]:border-navy"
+                        >
+                          <RadioGroupItem id={address.id} value={address.id} className="mt-1" />
+                          <span className="text-sm">
+                            <span className="block font-medium">
+                              {address.firstName} {address.lastName}
+                            </span>
+                            <span className="block text-muted-foreground">
+                              {address.line1}
+                              {address.line2 ? `, ${address.line2}` : ""}, {address.city},{" "}
+                              {address.postcode}
+                            </span>
+                          </span>
+                        </Label>
+                      ))}
+                    </RadioGroup>
+                  )}
+
+                  {addingAddress ? (
+                    <div className="rounded-lg border border-border p-4">
+                      <AddressForm
+                        onSaved={(id) => {
+                          setAddingAddress(false);
+                          setSelectedAddressId(id);
+                          queryClient.invalidateQueries({ queryKey: addressesQueryKey(uid) });
+                        }}
+                        onCancel={() => setAddingAddress(false)}
+                      />
+                    </div>
+                  ) : (
+                    <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => setAddingAddress(true)}>
+                      Add a new address
+                    </Button>
+                  )}
+                </section>
+              )}
+
+              {collecting && (
+                <section className="flex flex-col gap-4">
+                  <h2 className="text-lg font-medium">Collection details</h2>
+                  <div className="flex gap-3 rounded-lg border border-navy/30 bg-cream/60 p-4 text-sm">
+                    <StoreIcon className="mt-0.5 size-5 shrink-0 text-navy" />
+                    <div className="flex flex-col gap-1">
+                      <p className="font-semibold text-navy">Collect from store — no delivery</p>
+                      <p>{site.collection.address}</p>
+                      <p className="text-muted-foreground">
+                        Collection hours: {site.collection.hours}. We&rsquo;ll email you
+                        when your order is ready. {site.collection.instructions}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Who&rsquo;s collecting? We&rsquo;ll use these details to contact you
+                    and check your order at the counter.
+                  </p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <TextField
+                      label="First name"
+                      name="collectFirstName"
+                      autoComplete="given-name"
+                      value={contactFirstName ?? user?.firstName ?? ""}
+                      onChange={(e) => setContactFirstName(e.target.value)}
+                    />
+                    <TextField
+                      label="Last name"
+                      name="collectLastName"
+                      autoComplete="family-name"
+                      value={contactLastName ?? user?.lastName ?? ""}
+                      onChange={(e) => setContactLastName(e.target.value)}
+                    />
+                    <TextField
+                      label="Email"
+                      name="collectEmail"
+                      type="email"
+                      value={user?.email ?? ""}
+                      readOnly
+                      disabled
+                    />
+                    <TextField
+                      label="Phone number"
+                      name="collectPhone"
+                      type="tel"
+                      autoComplete="tel"
+                      placeholder="07123 456789"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                      onBlur={() => setPhoneTouched(true)}
+                      error={
+                        phoneTouched && !phoneValid
+                          ? { type: "pattern", message: "Enter a valid UK phone number" }
+                          : undefined
+                      }
+                    />
+                  </div>
+                </section>
+              )}
+
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button
                 type="button"
                 size="lg"
                 className="self-start"
-                disabled={!activeAddressId || !activeMethodId}
+                disabled={!deliveryReady || !activeMethodId}
                 onClick={() => setStep(1)}
               >
                 Continue to payment
@@ -282,6 +366,31 @@ export function CheckoutView() {
           {step === 1 && (
             <div className="flex flex-col gap-6">
               <h2 className="text-lg font-medium">Payment</h2>
+              {method && (
+                <div className="rounded-lg border border-border p-4 text-sm">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Delivery method
+                  </p>
+                  <p className="font-semibold">{method.label}</p>
+                  {collecting ? (
+                    <p className="text-muted-foreground">
+                      Collect from {site.collection.address} · {site.collection.hours}
+                      <br />
+                      Collecting: {firstName} {lastName} · {contactPhone.trim()}
+                    </p>
+                  ) : (
+                    (() => {
+                      const a = addresses.find((x) => x.id === activeAddressId);
+                      return a ? (
+                        <p className="text-muted-foreground">
+                          Delivering to {a.firstName} {a.lastName}, {a.line1}, {a.city},{" "}
+                          {a.postcode}
+                        </p>
+                      ) : null;
+                    })()
+                  )}
+                </div>
+              )}
               <p className="rounded-md border border-dashed border-border bg-cream/50 px-4 py-3 text-sm text-muted-foreground">
                 Card payments are processed securely by Stripe — you&rsquo;ll be
                 redirected to complete payment, then brought back here.

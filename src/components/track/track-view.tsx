@@ -8,7 +8,7 @@ import { TextField } from "@/components/common/text-field";
 import { OrderStatusBadge } from "@/components/common/order-status-badge";
 import { DeliveryProgress } from "@/components/common/delivery-progress";
 import { formatDate } from "@/lib/format";
-import type { OrderEvent, OrderStatus } from "@/types";
+import type { CollectionPoint, OrderEvent, OrderStatus } from "@/types";
 
 type TrackResult = {
   number: string;
@@ -19,6 +19,8 @@ type TrackResult = {
   trackingUrl: string | null;
   shippedAt: string | null;
   deliveredAt: string | null;
+  shippingMethod?: string;
+  collection: CollectionPoint | null;
   lines: { name: string; colourLabel: string; size: string; quantity: number; image: string }[];
   timeline: OrderEvent[];
 };
@@ -101,8 +103,11 @@ export function TrackView({ initialOrder = "" }: { initialOrder?: string }) {
                 <p className="text-xs text-muted-foreground">
                   Placed {formatDate(result.placedAt)}
                 </p>
+                {result.shippingMethod && (
+                  <p className="mt-1 text-sm font-semibold">{result.shippingMethod}</p>
+                )}
               </div>
-              <OrderStatusBadge status={result.status} />
+              <OrderStatusBadge status={result.status} collection={!!result.collection} />
             </div>
 
             <DeliveryProgress
@@ -111,6 +116,7 @@ export function TrackView({ initialOrder = "" }: { initialOrder?: string }) {
               trackingNumber={result.trackingNumber}
               trackingUrl={result.trackingUrl}
               timeline={result.timeline}
+              collection={result.collection}
             />
 
             <div className="flex flex-col gap-3">

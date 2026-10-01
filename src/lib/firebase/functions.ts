@@ -2,16 +2,13 @@
 
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { firebaseApp } from "@/lib/firebase/client";
-import type { CheckoutLine } from "@/lib/api/checkout";
+import type { CreateCheckoutSessionInput } from "@/lib/api/checkout";
 
 const functions = getFunctions(firebaseApp);
 
-export async function createCheckoutSession(input: {
-  lines: CheckoutLine[];
-  shippingMethodId: string;
-  addressId: string;
-  discountCode?: string | null;
-}): Promise<{ url: string }> {
+export async function createCheckoutSession(
+  input: CreateCheckoutSessionInput,
+): Promise<{ url: string }> {
   const call = httpsCallable<typeof input & { origin?: string }, { url: string }>(
     functions,
     "createCheckoutSession",

@@ -29,13 +29,29 @@ export default function ShippingReturnsPage() {
               days.
             </li>
             <li>
-              <strong>Collect from store</strong> — free, from Peckham Levels,
-              London.
+              <strong>Collect from store</strong> — free, from{" "}
+              {site.collection.address}. No delivery address needed.
             </li>
           </ul>
+
+          <h2>Collect from store</h2>
           <p>
-            Delivery is charged on every order, whatever the basket total. We
-            deliver to UK addresses only (not the Channel Islands, Isle of Man or
+            Choose <strong>Collect from store</strong> at checkout and we&rsquo;ll
+            email you as soon as your order is ready. Please wait for that email
+            before coming in.
+          </p>
+          <ul>
+            <li>
+              <strong>Where:</strong> {site.collection.address}
+            </li>
+            <li>
+              <strong>Collection hours:</strong> {site.collection.hours}
+            </li>
+            <li>{site.collection.instructions}</li>
+          </ul>
+          <p>
+            Express delivery is charged on every order, whatever the basket
+            total. We deliver to UK addresses only (not the Channel Islands, Isle of Man or
             BFPO).
           </p>
           <p>

@@ -2,10 +2,12 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { db } from "./admin";
 import { getStripe, siteUrl, stripeSecretKey } from "./stripe";
 import { assertValidCustomVerse } from "./moderation";
-import { assertUkDeliveryAddress } from "./uk-address";
+import { assertUkDeliveryAddress, assertUkPhone } from "./uk-address";
+import { COLLECTION_POINT, isCollectionMethod } from "./collection";
 import type {
   Address,
   CheckoutLineInput,
+  CollectionContact,
   OrderLine,
   Product,
   ShippingBand,
@@ -15,7 +17,10 @@ import type {
 type CreateCheckoutSessionInput = {
   lines: CheckoutLineInput[];
   shippingMethodId: string;
-  addressId: string;
+  /** Required for delivery methods; ignored for collection. */
+  addressId?: string | null;
+  /** Required for collection — email is taken from the account, not trusted from the client. */
+  collectionContact?: { firstName?: string; lastName?: string; phone?: string } | null;
   discountCode?: string | null;
   /** The caller's own origin (window.location.origin) — only trusted if it matches ALLOWED_ORIGINS, so Stripe's redirect can't be pointed anywhere arbitrary. */
   origin?: string;
@@ -120,14 +125,12 @@ export const createCheckoutSession = onCall(
     }
 
     const input = request.data as CreateCheckoutSessionInput;
-    const [userSnap, addressSnap, settingsSnap] = await Promise.all([
+    const [userSnap, settingsSnap] = await Promise.all([
       db.collection("users").doc(uid).get(),
-      db.collection("users").doc(uid).collection("addresses").doc(input.addressId ?? "").get(),
       db.collection("settings").doc("store").get(),
     ]);
 
     if (!userSnap.exists) throw new HttpsError("not-found", "User profile not found.");
-    if (!addressSnap.exists) throw new HttpsError("not-found", "Delivery address not found.");
     if (!settingsSnap.exists) throw new HttpsError("internal", "Store is not configured yet.");
 
     const user = userSnap.data() as {
@@ -136,16 +139,41 @@ export const createCheckoutSession = onCall(
       email: string;
       stripeCustomerId?: string;
     };
-    const address = { id: addressSnap.id, ...addressSnap.data() } as Address;
     const settings = settingsSnap.data() as StoreSettings;
-    assertUkDeliveryAddress(address);
-
-    const { orderLines, subtotal, totalWeightGrams } = await repriceLines(input.lines);
 
     const method =
       settings.shippingMethods.find((m) => m.id === input.shippingMethodId) ??
       settings.shippingMethods[0];
     if (!method) throw new HttpsError("internal", "No shipping methods configured.");
+    const collecting = isCollectionMethod(method);
+
+    // Collection orders are picked up in store — no delivery address is
+    // needed (or stored), just who's collecting and how to reach them.
+    let address: Address | null = null;
+    let collectionContact: CollectionContact | null = null;
+    if (collecting) {
+      const firstName = input.collectionContact?.firstName?.trim() ?? "";
+      const lastName = input.collectionContact?.lastName?.trim() ?? "";
+      const phone = input.collectionContact?.phone?.trim() ?? "";
+      if (!firstName || !lastName) {
+        throw new HttpsError("invalid-argument", "Enter the first and last name of whoever is collecting.");
+      }
+      assertUkPhone(phone);
+      collectionContact = { firstName, lastName, email: user.email, phone };
+    } else {
+      if (!input.addressId) throw new HttpsError("invalid-argument", "Choose a delivery address.");
+      const addressSnap = await db
+        .collection("users")
+        .doc(uid)
+        .collection("addresses")
+        .doc(input.addressId)
+        .get();
+      if (!addressSnap.exists) throw new HttpsError("not-found", "Delivery address not found.");
+      address = { id: addressSnap.id, ...addressSnap.data() } as Address;
+      assertUkDeliveryAddress(address);
+    }
+
+    const { orderLines, subtotal, totalWeightGrams } = await repriceLines(input.lines);
 
     let discountPence = 0;
     let discountCode: string | null = null;
@@ -243,7 +271,7 @@ export const createCheckoutSession = onCall(
       ...(stripeCouponId && { discounts: [{ coupon: stripeCouponId }] }),
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/checkout`,
-      metadata: { uid },
+      metadata: { uid, deliveryType: collecting ? "collection" : "delivery" },
     });
 
     if (!session.url) throw new HttpsError("internal", "Stripe did not return a checkout URL.");
@@ -262,8 +290,11 @@ export const createCheckoutSession = onCall(
         discount: discountPence,
         discountCode,
         total,
-        shippingAddress: address,
         shippingMethod: method.label,
+        deliveryType: collecting ? "collection" : "delivery",
+        ...(address
+          ? { shippingAddress: address }
+          : { collectionPoint: COLLECTION_POINT, collectionContact }),
         customerId: uid,
         customerEmail: user.email,
         customerName: `${user.firstName} ${user.lastName}`.trim(),

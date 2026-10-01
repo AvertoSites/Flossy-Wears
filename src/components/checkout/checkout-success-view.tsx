@@ -10,6 +10,7 @@ import { firestore } from "@/lib/firebase/client";
 import { confirmCheckoutSession } from "@/lib/firebase/functions";
 import { useCart } from "@/lib/store/cart";
 import type { Order } from "@/types";
+import { collectionPointFor, isCollectionOrder } from "@/lib/delivery";
 
 export function CheckoutSuccessView() {
   const params = useSearchParams();
@@ -44,6 +45,7 @@ export function CheckoutSuccessView() {
   }
 
   const confirmed = order?.paymentStatus === "paid";
+  const point = order && isCollectionOrder(order) ? collectionPointFor(order) : null;
 
   return (
     <div className="container-page flex flex-col items-center gap-6 py-24 text-center">
@@ -58,13 +60,25 @@ export function CheckoutSuccessView() {
           {confirmed ? (
             <>
               Order <span className="font-medium text-foreground">{order.number}</span>. A
-              confirmation email is on its way. We&rsquo;ll let you know when it ships.
+              confirmation email is on its way.{" "}
+              {point
+                ? "We’ll email you when it’s ready to collect."
+                : "We’ll let you know when it ships."}
             </>
           ) : (
             "This usually takes a few seconds — hang tight."
           )}
         </p>
       </div>
+      {confirmed && point && (
+        <div className="max-w-md rounded-xl border border-navy/30 bg-cream/60 p-5 text-left text-sm">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Delivery method</p>
+          <p className="mb-2 font-semibold">Collect from store</p>
+          <p className="font-medium">{point.address}</p>
+          <p className="text-muted-foreground">Collection hours: {point.hours}</p>
+          <p className="mt-2 text-muted-foreground">{point.instructions}</p>
+        </div>
+      )}
       <div className="flex gap-3">
         <Button asChild>
           <Link href="/shop">Continue shopping</Link>

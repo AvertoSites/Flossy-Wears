@@ -168,6 +168,25 @@ export type ShippingMethod = {
   estimate: string;
   /** Pence. When the order's item total after discounts reaches this, the method is free. Absent = always charged. */
   freeOverPence?: number;
+  /** "collection" = customer picks up in store, no delivery address needed. Absent = "delivery" (older settings docs only carry the `collection` id — see `isCollectionMethod`). */
+  type?: DeliveryType;
+};
+
+export type DeliveryType = "delivery" | "collection";
+
+/** Snapshot of where/when a collection order is picked up, stored on the order at checkout. */
+export type CollectionPoint = {
+  address: string;
+  hours: string;
+  instructions: string;
+};
+
+/** Who's picking up a collection order. */
+export type CollectionContact = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
 };
 
 export type OrderStatus =
@@ -230,8 +249,13 @@ export type Order = {
   shipping: number;
   discount: number;
   total: number;
-  shippingAddress: Address;
+  /** Absent on collection orders — the customer picks up in store. */
+  shippingAddress?: Address;
   shippingMethod: string;
+  /** Absent on orders placed before collection was handled separately — use `isCollectionOrder`. */
+  deliveryType?: DeliveryType;
+  collectionPoint?: CollectionPoint;
+  collectionContact?: CollectionContact;
   trackingUrl?: string;
   /** Admin / fulfillment fields. */
   customerEmail?: string;

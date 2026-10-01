@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebase/admin";
 import type { Order } from "@/types";
+import { collectionPointFor, isCollectionOrder } from "@/lib/delivery";
 
 const WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const MAX_ATTEMPTS = 20;
@@ -69,6 +70,8 @@ export async function POST(request: Request) {
     trackingUrl: order.trackingUrl ?? null,
     shippedAt: order.shippedAt ?? null,
     deliveredAt: order.deliveredAt ?? null,
+    shippingMethod: order.shippingMethod,
+    collection: isCollectionOrder(order) ? collectionPointFor(order) : null,
     lines: order.lines.map((l) => ({
       name: l.name,
       colourLabel: l.colourLabel,
