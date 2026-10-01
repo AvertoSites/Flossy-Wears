@@ -172,6 +172,17 @@ export const createCheckoutSession = onCall(
     const total = discountedSubtotal + shipping;
 
     let stripeCustomerId = user.stripeCustomerId;
+    // A stored ID may belong to the other Stripe mode (test vs live) or have
+    // been deleted in the dashboard — verify it before handing it to Checkout.
+    if (stripeCustomerId) {
+      try {
+        const existing = await stripe.customers.retrieve(stripeCustomerId);
+        if (existing.deleted) stripeCustomerId = undefined;
+      } catch (err) {
+        if ((err as { code?: string }).code !== "resource_missing") throw err;
+        stripeCustomerId = undefined;
+      }
+    }
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
         email: user.email,
