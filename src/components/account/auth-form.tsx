@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -15,11 +15,13 @@ import { PasswordField } from "@/components/common/password-field";
 import { firebaseAuth } from "@/lib/firebase/client";
 import { createCustomerProfile } from "@/lib/firebase/user-doc";
 import { authErrorMessage } from "@/lib/firebase/errors";
+import { safeRedirect, useAuth, waitForAuthUser } from "@/lib/store/auth";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/account";
+  const redirect = safeRedirect(searchParams.get("redirect"), "/account");
+  const status = useAuth((s) => s.status);
   const [values, setValues] = useState({
     firstName: "",
     lastName: "",
@@ -31,6 +33,13 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [loading, setLoading] = useState(false);
 
   const isRegister = mode === "register";
+
+  // Already signed in (or just finished signing in) — skip the login form.
+  // Register handles its own navigation, since it must finish creating the
+  // profile and sending the verification email first.
+  useEffect(() => {
+    if (!isRegister && status === "signed-in") router.replace(redirect);
+  }, [isRegister, status, router, redirect]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,17 +69,26 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         await updateProfile(cred.user, {
           displayName: `${firstName} ${lastName}`.trim(),
         });
-        await createCustomerProfile({
+        const profile = await createCustomerProfile({
           uid: cred.user.uid,
           email: values.email,
           firstName,
           lastName,
         });
         await sendEmailVerification(cred.user);
+        await waitForAuthUser(cred.user.uid);
+        // The listener may have read the profile before the doc above existed
+        // (falling back to blank names) — store the real one.
+        useAuth.getState().setUser(profile, cred.user.emailVerified);
         router.push(`/account/verify-email?redirect=${encodeURIComponent(redirect)}`);
       } else {
-        await signInWithEmailAndPassword(firebaseAuth, values.email, values.password);
-        router.push(redirect);
+        const cred = await signInWithEmailAndPassword(
+          firebaseAuth,
+          values.email,
+          values.password,
+        );
+        await waitForAuthUser(cred.user.uid);
+        router.replace(redirect);
       }
     } catch (err) {
       setError(authErrorMessage(err));

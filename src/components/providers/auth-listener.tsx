@@ -15,27 +15,37 @@ import { useAuth } from "@/lib/store/auth";
  */
 export function AuthListener() {
   const setUser = useAuth((s) => s.setUser);
+  const setLoading = useAuth((s) => s.setLoading);
 
   useEffect(() => {
+    // Uid of the most recent auth event — a slow profile fetch for an earlier
+    // event must not overwrite a later sign-in/sign-out.
+    let latestUid: string | null = null;
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (fbUser) => {
+      latestUid = fbUser?.uid ?? null;
       if (!fbUser) {
         setUser(null);
         return;
       }
+      // Signed in to Firebase but the profile isn't loaded yet — hold gates
+      // in "loading" so they don't treat the gap as signed-out.
+      setLoading();
       const [firstName, ...rest] = (fbUser.displayName ?? "").split(" ");
       const fallback = {
         email: fbUser.email ?? "",
         firstName: firstName || "",
         lastName: rest.join(" "),
       };
-      const profile = await fetchUserProfile(fbUser.uid, fallback);
+      // A failed read (offline, rules) mustn't leave the app stuck in "loading".
+      const profile = await fetchUserProfile(fbUser.uid, fallback).catch(() => null);
+      if (latestUid !== fbUser.uid) return;
       setUser(
         profile ?? { uid: fbUser.uid, role: "customer", ...fallback },
         fbUser.emailVerified,
       );
     });
     return unsubscribe;
-  }, [setUser]);
+  }, [setUser, setLoading]);
 
   return null;
 }

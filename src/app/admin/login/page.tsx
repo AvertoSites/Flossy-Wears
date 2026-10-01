@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { firebaseAuth } from "@/lib/firebase/client";
 import { fetchUserProfile } from "@/lib/firebase/user-doc";
 import { authErrorMessage } from "@/lib/firebase/errors";
+import { waitForAuthUser } from "@/lib/store/auth";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -34,6 +35,9 @@ export default function AdminLoginPage() {
         setError("This account doesn't have admin access.");
         return;
       }
+      // Let the shared auth store catch up first, or AdminGate sees a stale
+      // signed-out state and bounces straight back here.
+      await waitForAuthUser(cred.user.uid);
       router.replace("/admin");
     } catch (err) {
       setError(authErrorMessage(err));

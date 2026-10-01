@@ -6,12 +6,12 @@ import { getIdToken, reload, sendEmailVerification } from "firebase/auth";
 import { MailCheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { firebaseAuth } from "@/lib/firebase/client";
-import { useAuth } from "@/lib/store/auth";
+import { safeRedirect, useAuth } from "@/lib/store/auth";
 
 export function VerifyEmailView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/account";
+  const redirect = safeRedirect(searchParams.get("redirect"), "/account");
   const status = useAuth((s) => s.status);
   const emailVerified = useAuth((s) => s.emailVerified);
   const user = useAuth((s) => s.user);
