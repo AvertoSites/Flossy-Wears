@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { COLOURS, DEFAULT_GARMENT_WEIGHT_GRAMS, SIZES } from "@/lib/constants";
 import { slugify } from "@/lib/format";
+import { inCollection, isAudienceCollection } from "@/lib/product-audience";
 import type { ColourOption, Product, ProductBadge, ProductCategory, ProductType } from "@/types";
 
 const TYPES: ProductType[] = ["sweatshirt", "t-shirt", "hoodie"];
@@ -124,7 +125,14 @@ export function ProductForm({ product }: { product?: Product }) {
     verse: { text: verseText, reference: verseReference },
     type,
     category,
-    collectionSlugs,
+    // For Him / For Her follow the category; store them so the doc matches
+    // what the storefront shows.
+    collectionSlugs: [
+      ...collectionSlugs.filter((s) => !isAudienceCollection(s)),
+      ...collections
+        .filter((c) => isAudienceCollection(c.slug) && inCollection({ category, collectionSlugs }, c.slug))
+        .map((c) => c.slug),
+    ],
     price: Math.round(parseFloat(price || "0") * 100),
     compareAtPrice: compareAt ? Math.round(parseFloat(compareAt) * 100) : null,
     colours: selectedColours,
@@ -477,19 +485,33 @@ export function ProductForm({ product }: { product?: Product }) {
         <div className="flex flex-col gap-6">
           <Card title="Collections">
             <div className="flex flex-col gap-2">
-              {collections.map((c) => (
-                <label key={c.slug} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={collectionSlugs.includes(c.slug)}
-                    onCheckedChange={(checked) =>
-                      setCollectionSlugs((prev) =>
-                        checked ? [...prev, c.slug] : prev.filter((s) => s !== c.slug),
-                      )
-                    }
-                  />
-                  {c.name}
-                </label>
-              ))}
+              {collections.map((c) =>
+                isAudienceCollection(c.slug) ? (
+                  <label
+                    key={c.slug}
+                    className="flex items-center gap-2 text-sm text-muted-foreground"
+                  >
+                    <Checkbox checked={inCollection({ category, collectionSlugs }, c.slug)} disabled />
+                    {c.name}
+                    <span className="text-xs">(set by category)</span>
+                  </label>
+                ) : (
+                  <label key={c.slug} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={collectionSlugs.includes(c.slug)}
+                      onCheckedChange={(checked) =>
+                        setCollectionSlugs((prev) =>
+                          checked ? [...prev, c.slug] : prev.filter((s) => s !== c.slug),
+                        )
+                      }
+                    />
+                    {c.name}
+                  </label>
+                ),
+              )}
+              <p className="mt-1 text-xs text-muted-foreground">
+                Men shows in For Him, Women in For Her, Unisex in both.
+              </p>
             </div>
           </Card>
 

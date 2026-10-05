@@ -39,10 +39,15 @@ export function AuthListener() {
       // A failed read (offline, rules) mustn't leave the app stuck in "loading".
       const profile = await fetchUserProfile(fbUser.uid, fallback).catch(() => null);
       if (latestUid !== fbUser.uid) return;
-      setUser(
-        profile ?? { uid: fbUser.uid, role: "customer", ...fallback },
-        fbUser.emailVerified,
-      );
+      const user = profile ?? { uid: fbUser.uid, role: "customer" as const, ...fallback };
+      // Customers get no access until their email is verified — the sign-in and
+      // register forms sign them straight back out, and any older unverified
+      // session is treated as signed out too. Admins sign in via /admin/login.
+      if (!fbUser.emailVerified && user.role !== "admin") {
+        setUser(null);
+        return;
+      }
+      setUser(user, fbUser.emailVerified);
     });
     return unsubscribe;
   }, [setUser, setLoading]);

@@ -57,7 +57,7 @@ export function FiltersPanel({
 
       <Accordion
         type="multiple"
-        defaultValue={["type", "colour", "size", "price"]}
+        defaultValue={["type", "category", "colour", "size", "price"]}
       >
         {!fixed.type && (
           <AccordionItem value="type">

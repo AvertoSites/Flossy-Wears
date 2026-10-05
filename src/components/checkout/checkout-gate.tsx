@@ -13,7 +13,7 @@ export function CheckoutGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (status === "signed-out") router.replace("/account/login?redirect=/checkout");
     else if (status === "signed-in" && !emailVerified) {
-      router.replace("/account/verify-email?redirect=/checkout");
+      router.replace("/account/login?redirect=/checkout");
     }
   }, [status, emailVerified, router]);
 

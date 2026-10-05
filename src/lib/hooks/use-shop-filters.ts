@@ -11,6 +11,7 @@ export function useShopFilters(fixed: Partial<ProductFilters> = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
+  const fixedKey = JSON.stringify(fixed);
 
   const filters = useMemo<ProductFilters>(() => {
     const get = (k: string) => params.get(k) ?? undefined;
@@ -33,7 +34,7 @@ export function useShopFilters(fixed: Partial<ProductFilters> = {}) {
       perPage: fixed.perPage ?? DEFAULT_PER_PAGE,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params]);
+  }, [params, fixedKey]);
 
   const setParam = useCallback(
     (updates: Record<string, string | string[] | number | undefined>) => {

@@ -3,6 +3,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { adminDb } from "@/lib/firebase/admin";
 import { DEFAULT_PER_PAGE } from "@/lib/constants";
+import { inCollection } from "@/lib/product-audience";
 import type {
   Paginated,
   Product,
@@ -58,7 +59,7 @@ function sortProducts(list: Product[], sort: ProductSort = "featured"): Product[
 }
 
 function matches(product: Product, f: ProductFilters): boolean {
-  if (f.collection && !product.collectionSlugs.includes(f.collection)) return false;
+  if (f.collection && !inCollection(product, f.collection)) return false;
   if (f.category && product.category !== f.category && product.category !== "unisex")
     return false;
   if (f.type && product.type !== f.type) return false;
@@ -112,7 +113,7 @@ export async function getProduct(slug: string): Promise<Product | null> {
 
 export async function getProductsByCollection(slug: string): Promise<Product[]> {
   const all = await getAllActiveProducts();
-  return all.filter((p) => p.collectionSlugs.includes(slug));
+  return all.filter((p) => inCollection(p, slug));
 }
 
 export async function getFeaturedProducts(limit = 4): Promise<Product[]> {

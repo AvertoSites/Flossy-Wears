@@ -13,7 +13,7 @@ export function AccountGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (status === "signed-out") router.replace("/account/login");
     else if (status === "signed-in" && !emailVerified) {
-      router.replace("/account/verify-email");
+      router.replace("/account/login");
     }
   }, [status, emailVerified, router]);
 
