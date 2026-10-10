@@ -25,6 +25,7 @@ export default function AdminReviewsPage() {
       qc.invalidateQueries({ queryKey: ["admin", "reviews"] });
       toast.success(vars.published ? "Review published" : "Review hidden");
     },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Couldn't update review"),
   });
 
   const reviews = data?.reviews ?? [];
@@ -33,7 +34,7 @@ export default function AdminReviewsPage() {
     <>
       <AdminHeader
         title="Reviews"
-        description="Hidden reviews don't appear on the storefront."
+        description="Hidden reviews — and their photos — don't appear on the storefront. Check photos before publishing."
       />
 
       {isPending ? (
@@ -65,6 +66,28 @@ export default function AdminReviewsPage() {
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground">{review.body}</p>
+                  {review.imagePreviews && review.imagePreviews.some(Boolean) && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {review.imagePreviews.map((url, i) =>
+                        url ? (
+                          <a
+                            key={i}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block size-20 overflow-hidden rounded-md border border-black/10 bg-[#f1eadb]"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL, not worth optimizing */}
+                            <img
+                              src={url}
+                              alt={`Review photo ${i + 1}`}
+                              className="size-full object-cover"
+                            />
+                          </a>
+                        ) : null,
+                      )}
+                    </div>
+                  )}
                   <p className="mt-1 text-xs text-muted-foreground">
                     {review.author} · {review.productName} ·{" "}
                     {formatDate(review.createdAt)}

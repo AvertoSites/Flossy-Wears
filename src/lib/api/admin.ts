@@ -1,7 +1,8 @@
 import "server-only";
 
 import { FieldValue } from "firebase-admin/firestore";
-import { revalidateTag } from "next/cache";
+import { getDownloadURL } from "firebase-admin/storage";
+import { revalidatePath, revalidateTag } from "next/cache";
 import Stripe from "stripe";
 import { adminDb, adminStorage, stripUndefinedDeep } from "@/lib/firebase/admin";
 import { sendTrackingUpdateEmail } from "@/lib/email/resend";
@@ -17,6 +18,7 @@ import type {
   PaymentsOverview,
   Product,
   Review,
+  ReviewImage,
   StoreSettings,
 } from "@/types";
 
@@ -612,8 +614,28 @@ export async function deleteDiscount(code: string): Promise<boolean> {
 
 /* --------------------------------- reviews -------------------------------- */
 
+type StoredReview = Review & { published: boolean; authorId?: string };
+
+/** Short-lived signed URLs so an admin can see photos on reviews that aren't public yet. */
+async function signReviewImages(images: ReviewImage[] = []): Promise<string[]> {
+  const expires = Date.now() + 60 * 60 * 1000;
+  return Promise.all(
+    images.map(async (img) => {
+      try {
+        const [url] = await adminStorage
+          .bucket()
+          .file(img.path)
+          .getSignedUrl({ action: "read", expires });
+        return url;
+      } catch {
+        return "";
+      }
+    }),
+  );
+}
+
 export async function listAdminReviews(): Promise<
-  (Review & { published: boolean; productName: string })[]
+  (StoredReview & { productName: string; imagePreviews: string[] })[]
 > {
   const [reviewsSnap, productsSnap] = await Promise.all([
     adminDb.collection("reviews").get(),
@@ -622,23 +644,74 @@ export async function listAdminReviews(): Promise<
   const productNames = new Map(
     productsSnap.docs.map((d) => [d.id, (d.data() as Product).name]),
   );
-  return reviewsSnap.docs
-    .map((d) => {
-      const r = d.data() as Review & { published: boolean };
-      return { ...r, productName: productNames.get(r.productId) ?? "Unknown product" };
-    })
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const reviews = await Promise.all(
+    reviewsSnap.docs.map(async (d) => {
+      const r = d.data() as StoredReview;
+      return {
+        ...r,
+        // Shopper-submitted docs didn't always store their own id.
+        id: d.id,
+        productName: productNames.get(r.productId) ?? "Unknown product",
+        imagePreviews: await signReviewImages(r.images),
+      };
+    }),
+  );
+  return reviews.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * Publishing mints a public download-token URL for each review photo;
+ * hiding revokes those tokens so the photos stop being reachable. Paths are
+ * re-validated against the review's own folder, since the shopper wrote the
+ * `images` array — anything outside `review-images/{authorId}/{id}/` or
+ * missing from Storage is dropped rather than published.
+ */
+async function setReviewImagesPublic(
+  review: StoredReview,
+  reviewId: string,
+  published: boolean,
+): Promise<ReviewImage[]> {
+  const prefix = `review-images/${review.authorId}/${reviewId}/`;
+  const bucket = adminStorage.bucket();
+  const results = await Promise.all(
+    (review.images ?? []).map(async (img): Promise<ReviewImage | null> => {
+      if (
+        !review.authorId ||
+        typeof img?.path !== "string" ||
+        !img.path.startsWith(prefix) ||
+        img.path.includes("..")
+      ) {
+        return null;
+      }
+      const file = bucket.file(img.path);
+      const [exists] = await file.exists();
+      if (!exists) return null;
+      const base = { path: img.path, width: Number(img.width) || 0, height: Number(img.height) || 0 };
+      if (published) {
+        return { ...base, url: await getDownloadURL(file) };
+      }
+      await file.setMetadata({ metadata: { firebaseStorageDownloadTokens: null } });
+      return base;
+    }),
+  );
+  return results.filter((img): img is ReviewImage => img !== null);
 }
 
 export async function setReviewPublished(
   id: string,
   published: boolean,
-): Promise<(Review & { published: boolean }) | null> {
+): Promise<StoredReview | null> {
   const ref = adminDb.collection("reviews").doc(id);
   const snap = await ref.get();
   if (!snap.exists) return null;
-  await ref.update({ published });
-  return { ...(snap.data() as Review & { published: boolean }), published };
+  const review = snap.data() as StoredReview;
+  const images = review.images?.length
+    ? await setReviewImagesPublic(review, id, published)
+    : undefined;
+  await ref.update({ published, ...(images && { images }) });
+  // Product pages are statically generated — refresh them so the change shows.
+  revalidatePath("/products/[slug]", "page");
+  return { ...review, id, published, ...(images && { images }) };
 }
 
 /* -------------------------------- settings ------------------------------- */

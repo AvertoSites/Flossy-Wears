@@ -1,7 +1,7 @@
 rules_version = '2';
 
-// Deploy via `firebase deploy --only storage`. Product photography only —
-// this app doesn't use Storage for anything else.
+// Deploy via `firebase deploy --only storage`. Product photography and
+// shopper review photos.
 service firebase.storage {
   match /b/{bucket}/o {
 
@@ -23,6 +23,20 @@ service firebase.storage {
       allow write: if isAdmin() &&
         request.resource.size < 10 * 1024 * 1024 &&
         request.resource.contentType.matches('image/.*');
+    }
+
+    // Shopper review photos. The browser re-encodes each one to a ≤1600px
+    // JPEG before upload (see compressReviewImage), so 3MB is generous.
+    // Shoppers can only create files in their own folder — never read,
+    // overwrite or delete. Nothing here is publicly readable: when an admin
+    // publishes the review, the server (Admin SDK, bypasses these rules)
+    // mints download-token URLs; hiding it again revokes them.
+    match /review-images/{uid}/{reviewId}/{fileName} {
+      allow create: if request.auth != null &&
+        request.auth.uid == uid &&
+        request.resource.size < 3 * 1024 * 1024 &&
+        request.resource.contentType == 'image/jpeg';
+      allow read, delete: if isAdmin();
     }
 
     match /{allPaths=**} {

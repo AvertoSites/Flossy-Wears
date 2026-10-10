@@ -84,7 +84,12 @@ service cloud.firestore {
       allow read: if resource.data.published == true || isAdmin();
       allow create: if isSignedIn() &&
         request.resource.data.authorId == request.auth.uid &&
-        request.resource.data.published == false;
+        request.resource.data.published == false &&
+        // Up to 3 photos. Each entry's path/url is re-checked server-side on
+        // publish (setReviewPublished), so a forged entry never goes public.
+        (!('images' in request.resource.data) ||
+          (request.resource.data.images is list &&
+           request.resource.data.images.size() <= 3));
       allow update: if isAdmin();
       allow delete: if false;
     }

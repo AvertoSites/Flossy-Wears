@@ -16,7 +16,12 @@ async function getPublishedReviews(productId: string): Promise<Review[]> {
     .where("productId", "==", productId)
     .where("published", "==", true)
     .get();
-  return snap.docs.map((d) => d.data() as Review);
+  return snap.docs.map((d) => {
+    const r = d.data() as Review;
+    // Only photos the admin's publish step minted a public URL for.
+    const images = (r.images ?? []).filter((img) => img.url);
+    return { ...r, id: d.id, images };
+  });
 }
 
 export async function getReviews(productId: string): Promise<Review[]> {

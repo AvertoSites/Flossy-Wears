@@ -114,6 +114,17 @@ export type Review = {
   body: string;
   createdAt: string;
   verified: boolean;
+  /** Shopper photos (max 3). `url` is only set once an admin publishes the review — see `setReviewPublished`. */
+  images?: ReviewImage[];
+};
+
+export type ReviewImage = {
+  /** Storage path: `review-images/{authorId}/{reviewId}/{n}.jpg`. */
+  path: string;
+  /** Public download URL — present only while the review is published. */
+  url?: string;
+  width: number;
+  height: number;
 };
 
 export type CartItem = {
@@ -302,7 +313,12 @@ export type StoreSettings = {
   shippingMethods: ShippingMethod[];
 };
 
-export type AdminReview = Review & { published: boolean; productName?: string };
+export type AdminReview = Review & {
+  published: boolean;
+  productName?: string;
+  /** Short-lived signed URLs, one per entry in `images` — lets an admin see photos on unpublished reviews. */
+  imagePreviews?: string[];
+};
 
 export type LowStockRow = {
   productId: string;

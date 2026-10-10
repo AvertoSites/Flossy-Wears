@@ -1,3 +1,6 @@
+import Image from "next/image";
+import Zoom from "react-medium-image-zoom";
+import "react-medium-image-zoom/dist/styles.css";
 import { CheckCircle2Icon } from "lucide-react";
 import { RatingStars } from "@/components/common/rating-stars";
 import { ReviewForm } from "@/components/product/review-form";
@@ -66,6 +69,22 @@ export function ProductReviews({
               </div>
               <h3 className="text-sm font-medium">{review.title}</h3>
               <p className="text-sm text-muted-foreground">{review.body}</p>
+              {review.images && review.images.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {review.images.map((img, i) => (
+                    <Zoom key={img.path}>
+                      <Image
+                        src={img.url!}
+                        alt={`Photo ${i + 1} from ${review.author}'s review`}
+                        width={img.width || 160}
+                        height={img.height || 160}
+                        sizes="(min-width: 640px) 96px, 80px"
+                        className="size-20 rounded-md bg-cream object-cover sm:size-24"
+                      />
+                    </Zoom>
+                  ))}
+                </div>
+              )}
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 {review.author}
                 {review.verified && (
