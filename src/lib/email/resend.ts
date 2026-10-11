@@ -264,3 +264,48 @@ export async function sendTrackingUpdateEmail(input: {
     }),
   });
 }
+
+/**
+ * Account emails (verify address / reset password). Sent through Resend from
+ * our own domain rather than Firebase's built-in mailer, whose
+ * `noreply@<project>.firebaseapp.com` sender is routinely blocked or
+ * spam-foldered by providers like BT/Yahoo. `link` is a Firebase action link
+ * from the Admin SDK, so Firebase still does the actual verifying/resetting.
+ */
+export async function sendAccountEmail(input: {
+  to: string;
+  kind: "verify" | "reset";
+  link: string;
+}): Promise<{ sent: boolean; error?: string }> {
+  const copy =
+    input.kind === "verify"
+      ? {
+          subject: `Verify your email — ${site.name}`,
+          heading: "Confirm your email address",
+          body: `Thanks for creating a ${site.name} account. Click the button below to verify your email, then sign in.`,
+          cta: "Verify email",
+          footer: "If you didn't create an account, you can ignore this email.",
+        }
+      : {
+          subject: `Reset your password — ${site.name}`,
+          heading: "Reset your password",
+          body: "We received a request to reset your password. Click the button below to choose a new one. The link expires in 1 hour.",
+          cta: "Reset password",
+          footer: "If you didn't ask to reset your password, you can ignore this email — your password won't change.",
+        };
+
+  const bodyHtml = `
+    <h1 style="margin:0 0 12px;font-size:20px;color:${COLORS.ink};text-align:center">${copy.heading}</h1>
+    <p style="margin:0;font-size:14.5px;line-height:1.6;color:${COLORS.ink};text-align:center">${escapeHtml(copy.body)}</p>
+    ${button(copy.cta, input.link)}
+    <p style="margin:22px 0 0;font-size:12.5px;line-height:1.6;color:${COLORS.muted};text-align:center">Button not working? Copy this link into your browser:<br /><a href="${input.link}" style="color:${COLORS.navy};word-break:break-all">${escapeHtml(input.link)}</a></p>
+    <p style="margin:16px 0 0;font-size:12.5px;color:${COLORS.muted};text-align:center">${escapeHtml(copy.footer)}</p>
+  `;
+
+  return sendEmail({
+    to: input.to,
+    subject: copy.subject,
+    text: [copy.heading, "", copy.body, "", `${copy.cta}: ${input.link}`, "", copy.footer].join("\n"),
+    html: emailShell({ previewText: copy.heading, bodyHtml }),
+  });
+}

@@ -11,6 +11,7 @@ import {
   updateProfile,
   type User,
 } from "firebase/auth";
+import { FirebaseError } from "firebase/app";
 import { CircleCheckIcon, MailIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/common/text-field";
@@ -18,20 +19,23 @@ import { PasswordField } from "@/components/common/password-field";
 import { firebaseAuth } from "@/lib/firebase/client";
 import { createCustomerProfile } from "@/lib/firebase/user-doc";
 import { authErrorMessage } from "@/lib/firebase/errors";
+import { requestAccountEmail } from "@/lib/account-email";
 import { safeRedirect, useAuth, waitForAuthUser } from "@/lib/store/auth";
 
 /**
- * Sends the verification email with a link back to sign-in. Falls back to
- * Firebase's plain email if this site's domain isn't on the Auth authorised
- * domains list (which rejects a continue URL).
+ * Sends the verification email through our own mailer (see
+ * `/api/auth/email`) — Firebase's default sender is often blocked by
+ * providers like BT. Falls back to Firebase's email if that fails, and to
+ * its plain email if this site's domain isn't on the Auth authorised domains
+ * list (which rejects a continue URL).
  */
 async function sendVerification(user: User) {
   try {
+    await requestAccountEmail("verify", user.email!);
+  } catch {
     await sendEmailVerification(user, {
       url: `${window.location.origin}/account/login?verified=1`,
-    });
-  } catch {
-    await sendEmailVerification(user);
+    }).catch(() => sendEmailVerification(user));
   }
 }
 
@@ -44,6 +48,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   // Set by registration (?verify=sent) or by the link in the verification email (?verified=1).
   const justRegistered = searchParams.get("verify") === "sent";
   const justVerified = searchParams.get("verified") === "1";
+  // Set by the link in the password reset email.
+  const justReset = searchParams.get("reset") === "1";
   const [values, setValues] = useState({
     firstName: "",
     lastName: "",
@@ -56,6 +62,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   // Sign-in was refused because the email isn't verified yet.
   const [unverified, setUnverified] = useState(false);
   const [resend, setResend] = useState<"idle" | "sending" | "sent">("idle");
+  // Register was refused because the email is taken (and the password didn't sign them in).
+  const [emailTaken, setEmailTaken] = useState(false);
 
   const isRegister = mode === "register";
 
@@ -66,24 +74,43 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     if (!isRegister && status === "signed-in" && emailVerified) router.replace(redirect);
   }, [isRegister, status, emailVerified, router, redirect]);
 
-  // Firebase only lets a signed-in user request the email, so sign in briefly
-  // with the details still in the form, send it, and sign straight back out.
   async function resendVerification() {
     setResend("sending");
     setError(null);
+    try {
+      await requestAccountEmail("verify", values.email);
+      setResend("sent");
+    } catch (err) {
+      setResend("idle");
+      setError(err instanceof Error ? err.message : authErrorMessage(err));
+    }
+  }
+
+  /**
+   * Register hit an existing account — usually someone who signed up before
+   * but never got (or clicked) the verification email. If the password they
+   * just typed is right, pick up where they left off instead of dead-ending.
+   */
+  async function recoverExistingAccount(): Promise<boolean> {
     try {
       const cred = await signInWithEmailAndPassword(
         firebaseAuth,
         values.email,
         values.password,
       );
+      if (cred.user.emailVerified) {
+        await waitForAuthUser(cred.user.uid);
+        router.replace(redirect);
+        return true;
+      }
       await sendVerification(cred.user);
-      setResend("sent");
-    } catch (err) {
-      setResend("idle");
-      setError(authErrorMessage(err));
-    } finally {
+      await signOut(firebaseAuth);
+      const params = new URLSearchParams({ verify: "sent", email: values.email, redirect });
+      router.replace(`/account/login?${params}`);
+      return true;
+    } catch {
       await signOut(firebaseAuth).catch(() => {});
+      return false;
     }
   }
 
@@ -91,6 +118,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     e.preventDefault();
     setError(null);
     setUnverified(false);
+    setEmailTaken(false);
     setResend("idle");
 
     if (isRegister) {
@@ -143,6 +171,15 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         router.replace(redirect);
       }
     } catch (err) {
+      if (
+        isRegister &&
+        err instanceof FirebaseError &&
+        err.code === "auth/email-already-in-use"
+      ) {
+        if (await recoverExistingAccount()) return;
+        setEmailTaken(true);
+        return;
+      }
       setError(authErrorMessage(err));
     } finally {
       setLoading(false);
@@ -171,6 +208,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         {!isRegister && justVerified && !unverified && (
           <Notice icon={<CircleCheckIcon className="size-4" />}>
             Email verified — sign in to continue.
+          </Notice>
+        )}
+        {!isRegister && justReset && (
+          <Notice icon={<CircleCheckIcon className="size-4" />}>
+            Password updated — sign in with your new password.
           </Notice>
         )}
 
@@ -217,6 +259,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               setValues((v) => ({ ...v, password: e.target.value }))
             }
           />
+          {!isRegister && (
+            <Link
+              href={`/account/forgot-password${values.email ? `?email=${encodeURIComponent(values.email)}` : ""}`}
+              className="-mt-2 self-end text-sm text-navy underline underline-offset-4"
+            >
+              Forgot password?
+            </Link>
+          )}
           {isRegister && (
             <PasswordField
               label="Confirm password"
@@ -249,6 +299,25 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                     : "Resend verification email"}
               </button>
             </div>
+          )}
+          {emailTaken && (
+            <p className="text-sm text-destructive">
+              An account with that email already exists.{" "}
+              <Link
+                href={`/account/login?redirect=${encodeURIComponent(redirect)}`}
+                className="text-navy underline underline-offset-4"
+              >
+                Sign in
+              </Link>{" "}
+              or{" "}
+              <Link
+                href={`/account/forgot-password?email=${encodeURIComponent(values.email)}`}
+                className="text-navy underline underline-offset-4"
+              >
+                reset your password
+              </Link>
+              .
+            </p>
           )}
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" size="lg" disabled={loading}>

@@ -16,6 +16,10 @@ export function authErrorMessage(error: unknown): string {
         return "Enter a valid email address.";
       case "auth/too-many-requests":
         return "Too many attempts. Please try again in a moment.";
+      case "auth/expired-action-code":
+        return "This link has expired. Please request a new one.";
+      case "auth/invalid-action-code":
+        return "This link is invalid or has already been used. Please request a new one.";
       case "auth/network-request-failed":
         return "Network error — check your connection and try again.";
       default:
